@@ -15,6 +15,7 @@ library(dplyr)
 library(naniar)
 library(visdat)
 library(mice)
+library(ggplot2)
 ```
 
 ```{r}
@@ -63,7 +64,49 @@ data = complete(imputed_data)
 
 ```{r}
 # Now we can read the data directly
-data = read.csv("cleaned_data_additional_full.csv")
+data = read.csv("cleaned_data_additional_full.csv")[,-1]
+head(data)
+```
+
+## Variable Exploration
+
+### age
+
+How is `age` distributed and how is it related to `y`?
+
+```{r}
+# distribution of variable age
+ggplot(data, aes(x = age, color = y)) + geom_histogram(fill = "white", alpha=0.5, position="identity")
+```
+
+We can see that most of the potential subscribers are middle-aged. It also seems that even though most potential subscribers are middle-aged, the proportion of these people actually subscribed are comparably low. The proportion of young people and old people subscribing are high, but proportionally we do not have a lot of such customers.
+
+## Job
+
+How is `job` related to `y`?
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=job)) + 
+    geom_bar(position="stack", stat="count") + 
+    coord_flip()
+```
+
+Looks like the proportion of retired and student subscribers are also optimal.
+
+## marital status
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=marital)) + 
+    geom_bar(position="stack", stat="count")
+```
+
+
+## education
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=education)) + 
+    geom_bar(position="stack", stat="count") +
+  coord_flip()
 ```
 
 # Modeling
