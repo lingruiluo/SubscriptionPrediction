@@ -1,28 +1,73 @@
 ---
-title: "SubscriptionPrediction"
+title: "Subscription Prediction"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+# Data Explanation
+
+This dataset has been dowloaded from UCI Machine Learning Repository. "The data is related with direct marketing campaigns of a Portuguese banking institution. The marketing campaigns were based on phone calls. Often, more than one contact to the same client was required, in order to access if the product (bank term deposit) would be ('yes') or not ('no') subscribed." (See https://archive.ics.uci.edu/ml/datasets/bank+marketing). See also the `dataset_description.txt` and `attribute_info.txt` for explanation of the datasets and variables.
+
+# Data Preparation
+
+```{r}
+# libraries
+library(dplyr)
+library(naniar)
+library(visdat)
+library(mice)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+# read the data
+data = read.csv("bank-additional/bank-additional-full.csv", sep = ";")
 ```
 
-## Including Plots
+Take a look at the data:
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+summary(data)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+We find that there are some variables with level _unknown_, which should be treated as missing values.
+
+## Missing value
+
+```{r}
+# number of missing values
+sum(is.na(data))
+```
+
+There is no "direct" missing value in the dataset. However, as we mentioned above, the entries marked as _unknown_ should be treated as missing values. We replace all entries with _unknown_ as NA.
+
+```{r}
+data[data == "unknown"] = NA
+```
+
+Let's plot the missing values.
+
+```{r}
+vis_miss(data)
+```
+
+There are a few missing values associated with `job`, `marital`, `education`, `housing`, `loan`. But there are 20.87% missing values for `default`.
+
+We use the `mice` package to impute the missing values.
+
+```{r, eval = FALSE}
+imputed_data = mice(data, maxit = 1, method = 'pmm', seed = 6)
+data = complete(imputed_data)
+
+# save the data
+# write.csv(data, "cleaned_data_additional_full.csv")
+```
+
+```{r}
+# Now we can read the data directly
+data = read.csv("cleaned_data_additional_full.csv")
+```
+
+# Modeling
+
+
+
+# Results
