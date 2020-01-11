@@ -295,7 +295,7 @@ train = data[train_index,]
 test = data[-train_index,]
 ```
 
-```{r}
+```{r, cache = TRUE}
 rf_grid = expand.grid(mtry = 1 : 6)
 
 oob = trainControl(method = "oob")
