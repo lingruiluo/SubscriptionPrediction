@@ -17,6 +17,8 @@ library(visdat)
 library(mice)
 library(ggplot2)
 library(corrplot)
+library(caret)
+library(e1071)
 ```
 
 ```{r}
@@ -66,7 +68,6 @@ data = complete(imputed_data)
 ```{r}
 # Now we can read the data directly
 data = read.csv("cleaned_data_additional_full.csv")[,-1]
-head(data)
 ```
 
 ## Variable Exploration
@@ -264,9 +265,61 @@ corr_mat=cor(X,method="s")
 corrplot(corr_mat, is.corr = FALSE, win.asp = .7, method = "circle")
 ```
 
+We denote that `emp.var.rate`, `euribor3m` and `nr.employed` are highly correlated to each other.
+
+We look at the description of the three variables:
+
+1. emp.var.rate: employment variation rate - quarterly indicator (numeric)
+
+2. euribor3m: euribor 3 month rate - daily indicator (numeric)
+
+3. nr.employed: number of employees - quarterly indicator (numeric)
+
+We may consider remove `emp.var.rate` and `euribor3m` while modelling.
+
+Also, we remove the `duration` variable based on the dataset author's note: "this attribute highly affects the output target (e.g., if duration=0 then y='no'). Yet, the duration is not known before a call is performed. Also, after the end of the call y is obviously known. Thus, this input should only be included for benchmark purposes and should be discarded if the intention is to have a realistic predictive model."
+
+```{r}
+data = data %>%
+  select(-c(emp.var.rate, euribor3m, duration))
+```
 
 # Modeling
 
+```{r}
+# train-test split
+set.seed(2383)
+size = floor(0.75 * nrow(data))
+train_index <- sample(seq_len(nrow(data)), size = size)
+train = data[train_index,]
+test = data[-train_index,]
+```
 
+```{r}
+rf_grid = expand.grid(mtry = 1 : 6)
+
+oob = trainControl(method = "oob")
+rf_oob_tune = train(
+  y ~ .,
+  data = train,
+  method = "rf",
+  trControl = oob,
+  verbose = FALSE,
+  tuneGrid = rf_grid
+  )
+
+rf_oob_tune$bestTune
+```
+
+```{r}
+varImp(rf_oob_tune)
+```
+
+```{r}
+rf_oob_pred = predict(rf_oob_tune, test)
+rf_oob_pred_acc = sum(rf_oob_pred == test$y) / length(test$y)
+```
+
+The best tune uses `mtry` = 3. By checking the variable importance, we can see that `nr.employed`, `cons.conf.idx`, and `cons.price.idx` are the most important variables for predicting whether a client subscribes to a term deposit or not. The prediction accuracy is **0.8988055** on the test data.
 
 # Results
