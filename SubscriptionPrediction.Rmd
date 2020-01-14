@@ -1,6 +1,9 @@
 ---
 title: "Subscription Prediction"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_float: true
 ---
 
 # Data Explanation
@@ -83,7 +86,7 @@ ggplot(data, aes(x = age, color = y)) + geom_histogram(fill = "white", alpha=0.5
 
 We can see that most of the potential subscribers are middle-aged. It also seems that even though most potential subscribers are middle-aged, the proportion of these people actually subscribed are comparably low. The proportion of young people and old people subscribing are high, but proportionally we do not have a lot of such customers.
 
-## Job
+### Job
 
 How is `job` related to `y`?
 
@@ -95,7 +98,7 @@ ggplot(data, aes(fill=y, y=..count.., x=job)) +
 
 Looks like the proportion of retired and student subscribers are optimal.
 
-## marital status
+### marital status
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=marital)) + 
@@ -103,7 +106,7 @@ ggplot(data, aes(fill=y, y=..count.., x=marital)) +
 ```
 
 
-## education
+### education
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=education)) + 
@@ -111,7 +114,7 @@ ggplot(data, aes(fill=y, y=..count.., x=education)) +
   coord_flip()
 ```
 
-## default
+### default
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=default)) + 
@@ -127,7 +130,7 @@ data$y[data$default == "yes"]
 
 Most of the observations did not subscribe. But we cannot say there is any pattern, since this is the case within the whole population.
 
-## contact
+### contact
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=contact)) + 
@@ -136,7 +139,7 @@ ggplot(data, aes(fill=y, y=..count.., x=contact)) +
 
 It seems that people who are contacted by celluar are more likely to subscribe.
 
-## housing
+### housing
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=housing)) + 
@@ -145,14 +148,14 @@ ggplot(data, aes(fill=y, y=..count.., x=housing)) +
 
 There aren't significant difference in the `housing` section.
 
-## loan
+### loan
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=loan)) + 
     geom_bar(position="stack", stat="count")
 ```
 
-## month
+### month
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=month)) + 
@@ -161,7 +164,7 @@ ggplot(data, aes(fill=y, y=..count.., x=month)) +
 
 From the plot, we can see that there are many more observation in May. However, the proportion of people subscribed are not optimal. Also, there are not many observations on December, March, October, September, but the proportion of subscriptions is pretty high.
 
-## day_of_week
+### day_of_week
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=day_of_week)) + 
@@ -170,7 +173,7 @@ ggplot(data, aes(fill=y, y=..count.., x=day_of_week)) +
 
 There aren't siginificant differences in `day_of_week`.
 
-## duration
+### duration
 
 ```{r, warning = FALSE}
 ggplot(data, aes(fill=y, y=..count.., x=duration)) + 
@@ -179,14 +182,14 @@ ggplot(data, aes(fill=y, y=..count.., x=duration)) +
 
 When duration is near 0, almost no one subscribed. However, as duration increases, it seems that the proportion of people who subscribed increases.
 
-## campaign
+### campaign
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=campaign)) + 
     geom_bar(position="stack", stat="count")
 ```
 
-## pdays
+### pdays
 
 ```{r}
 # may be change level 999?
@@ -194,14 +197,14 @@ ggplot(data, aes(fill=y, y=..count.., x=pdays)) +
     geom_bar(width = 100, position="stack", stat="count")
 ```
 
-## previous
+### previous
 
 ```{r, warning = FALSE}
 ggplot(data, aes(fill=y, y=..count.., x=previous)) + 
     geom_bar(position="stack", stat="count")
 ```
 
-## poutcome
+### poutcome
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=poutcome)) + 
@@ -210,35 +213,35 @@ ggplot(data, aes(fill=y, y=..count.., x=poutcome)) +
 
 From the plot, we found that if previous marketing campagin succeeded, people are more likely to subscribe.
 
-## emp.var.rate
+### emp.var.rate
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=emp.var.rate)) + 
     geom_histogram(bins=5)
 ```
 
-## cons.price.idx
+### cons.price.idx
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=cons.price.idx)) + 
     geom_histogram(bins=5)
 ```
 
-## cons.conf.idx
+### cons.conf.idx
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=cons.conf.idx)) + 
     geom_histogram(bins=5)
 ```
 
-## euribor3m
+### euribor3m
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=euribor3m)) + 
     geom_histogram(bins=5)
 ```
 
-## nr.employed
+### nr.employed
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=nr.employed)) + 
@@ -285,6 +288,8 @@ data = data %>%
 ```
 
 # Modeling
+
+## Random Forest
 
 ```{r}
 # train-test split
