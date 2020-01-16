@@ -4,7 +4,12 @@ output:
   html_document:
     toc: true
     toc_float: true
+    code_folding: hide
 ---
+
+```{r include = FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
 
 # Data Explanation
 
@@ -12,7 +17,7 @@ This dataset has been dowloaded from UCI Machine Learning Repository. "The data 
 
 # Data Preparation
 
-```{r}
+```{r warning=FALSE, message=FALSE}
 # libraries
 library(dplyr)
 library(naniar)
@@ -22,6 +27,7 @@ library(ggplot2)
 library(corrplot)
 library(caret)
 library(e1071)
+library(plotly)
 ```
 
 ```{r}
@@ -35,32 +41,43 @@ Take a look at the data:
 summary(data)
 ```
 
-We find that there are some variables with level _unknown_, which should be treated as missing values.
+```{r}
+str(data)
+```
+
+There are 21 variables and 41,188 observations in total. The types of our features are diverse.  
+- numeric variables: `age`, `duration`, `campaign`, `pdays`(discrete), `previous`(discrete), `emp.var.rate`, `cons.price.idx`, `cons.conf.idx`, `euribor3m`, `nr.employed`  
+- categorical variables: `job`, `marital`, `education`, `default`, `housing`, `loan`, `contact`, `month`, `day_of_week`, `poutcome`
+- target variables: `y`
+
+There are some variables with level **unknown**, which should be treated as missing values.  
+Also, from the document `attribute_info.txt`, `pdays` (number of days that passed by after the client was last contacted from a previous campaign) has a value of 999 which means that client was not previously contacted. This variable is expected to be dealt with later regarding to the value of 999. 
+
 
 ## Missing value
 
 ```{r}
 # number of missing values
-sum(is.na(data))
+cat("The number of missing values: ",sum(is.na(data)))
 ```
 
-There is no "direct" missing value in the dataset. However, as we mentioned above, the entries marked as _unknown_ should be treated as missing values. We replace all entries with _unknown_ as NA.
+There is no "direct" missing value in the dataset. However, as we mentioned above, the entries marked as **unknown** should be treated as missing values. We replace all entries with **unknown** as NA.
 
-```{r}
+```{r echo=FALSE}
 data[data == "unknown"] = NA
 ```
 
-Let's plot the missing values.
+After replacing all **unknown** values, let's plot the missing values.
 
 ```{r}
-vis_miss(data)
+vis_miss(data, sort_miss = TRUE)
 ```
 
 There are a few missing values associated with `job`, `marital`, `education`, `housing`, `loan`. But there are 20.87% missing values for `default`.
 
 We use the `mice` package to impute the missing values.
 
-```{r, eval = FALSE}
+```{r, eval = FALSE, echo=TRUE}
 imputed_data = mice(data, maxit = 1, method = 'pmm', seed = 6)
 data = complete(imputed_data)
 
@@ -68,10 +85,21 @@ data = complete(imputed_data)
 # write.csv(data, "cleaned_data_additional_full.csv")
 ```
 
-```{r}
+```{r echo=TRUE}
 # Now we can read the data directly
 data = read.csv("cleaned_data_additional_full.csv")[,-1]
 ```
+
+## Balance of Dataset 
+
+In classification problem, the balance of dataset refers to the ratio of the number of output classes. Usually, 10:1 will be acceptable.  
+
+```{r}
+table(data$y)
+cat("The ratio of balance: ", table(data$y)['no']/table(data$y)['yes'])
+```
+
+The dataset is balanced as the ratio is approximately 8:1.  
 
 ## Variable Exploration
 
