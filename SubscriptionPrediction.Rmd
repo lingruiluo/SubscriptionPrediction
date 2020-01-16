@@ -109,7 +109,12 @@ How is `age` distributed and how is it related to `y`?
 
 ```{r}
 # distribution of variable age
-ggplot(data, aes(x = age, color = y)) + geom_histogram(fill = "white", alpha=0.5, position="identity")
+ggplot(data, aes(x = age, color = y)) + 
+  geom_histogram(fill = "white", alpha=0.8, position="identity") +
+  ggtitle("The Distribution of Age") +
+  xlab("Age") + 
+  ylab("Count") +
+  scale_color_brewer(palette = "Paired")
 ```
 
 We can see that most of the potential subscribers are middle-aged. It also seems that even though most potential subscribers are middle-aged, the proportion of these people actually subscribed are comparably low. The proportion of young people and old people subscribing are high, but proportionally we do not have a lot of such customers.
@@ -119,34 +124,71 @@ We can see that most of the potential subscribers are middle-aged. It also seems
 How is `job` related to `y`?
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=job)) + 
-    geom_bar(position="stack", stat="count") + 
-    coord_flip()
+data %>% 
+  group_by(y) %>%
+  count(job) %>%
+  ungroup() %>%
+#ggplot(data, aes(fill=y, y=..count.., x=job)) + 
+  #geom_bar(position="stack", stat="count") + 
+  ggplot(aes(x=reorder(job,n),y=n,fill=y))+
+  geom_bar(stat="identity")+
+  ggtitle("How many observations for each type of jobs?") +
+  xlab("Jobs") +
+  ylab("Count") +
+  coord_flip() +
+  scale_fill_brewer(palette = "Paired")
 ```
 
-Looks like the proportion of retired and student subscribers are optimal.
+Based on the plot, the proportion of retired and student subscribers are optimal. Most of people in our dataset are admin., blue-collar and technician, however, the proportion of subscribers is just a few. 
 
 ### marital status
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=marital)) + 
-    geom_bar(position="stack", stat="count")
+  geom_bar(position="stack", stat="count") +
+  ggtitle("How many observations for each marital status?") +
+  xlab("Marital Status") +
+  ylab("Count") +
+  scale_fill_brewer(palette = "Paired")
 ```
 
+There are many married people but just a few of them are subscribers. 
 
 ### education
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=education)) + 
-    geom_bar(position="stack", stat="count") +
-  coord_flip()
+data %>% 
+  group_by(y) %>%
+  count(education) %>%
+  ungroup() %>%
+  ggplot(aes(x=reorder(education,n),y=n,fill=y))+
+    geom_bar(stat="identity") +
+    ggtitle("How many observations for each type of education?") +
+    xlab("Education") +
+    ylab("Count") +
+    coord_flip() +
+    scale_fill_brewer(palette = "Paired")
+#ggplot(data, aes(fill=y, y=..count.., x=education)) + 
+#    geom_bar(position="stack", stat="count") +
 ```
+
+Most people are educated, and the majority obtained university degree. It is hard to say that higher-educated people are more likely to subscribe. 
 
 ### default
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=default)) + 
-    geom_bar(position="stack", stat="count")
+data %>% 
+  group_by(y) %>%
+  count(default) %>%
+  ungroup() %>%
+  #ggplot(data, aes(fill=y, y=..count.., x=default)) + 
+  #  geom_bar(position="stack", stat="count")
+  ggplot(aes(x=reorder(default,-n),y=n,fill=y))+
+    geom_bar(stat="identity") +
+    ggtitle("How many observations having credit in default?") +
+    xlab("Default") +
+    ylab("Count") +
+    scale_fill_brewer(palette = "Paired")
 ```
 
 Looks like only few observations have `default` = yes. We look at these observations.
@@ -161,8 +203,18 @@ Most of the observations did not subscribe. But we cannot say there is any patte
 ### contact
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=contact)) + 
-    geom_bar(position="stack", stat="count")
+#ggplot(data, aes(fill=y, y=..count.., x=contact)) + 
+#    geom_bar(position="stack", stat="count")
+data %>% 
+  group_by(y) %>%
+  count(contact) %>%
+  ungroup() %>%
+  ggplot(aes(x=reorder(contact,-n),y=n,fill=y))+
+    geom_bar(stat="identity") +
+    ggtitle("How many observations for each type of contact?") +
+    xlab("Contact") +
+    ylab("Count") +
+    scale_fill_brewer(palette = "Paired")
 ```
 
 It seems that people who are contacted by celluar are more likely to subscribe.
@@ -170,8 +222,16 @@ It seems that people who are contacted by celluar are more likely to subscribe.
 ### housing
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=housing)) + 
-    geom_bar(position="stack", stat="count")
+data %>% 
+  group_by(y) %>%
+  count(housing) %>% 
+  #ggplot(data, aes(fill=y, y=..count.., x=housing)) + 
+  ggplot(aes(x=reorder(housing,-n), y=n, fill=y)) +
+    geom_bar(stat="identity") +
+    ggtitle("How many observations having housing loan?") +
+    xlab("Housing") +
+    ylab("Count") +
+    scale_fill_brewer(palette = "Paired")
 ```
 
 There aren't significant difference in the `housing` section.
@@ -179,15 +239,34 @@ There aren't significant difference in the `housing` section.
 ### loan
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=loan)) + 
-    geom_bar(position="stack", stat="count")
+#ggplot(data, aes(fill=y, y=..count.., x=loan)) + 
+#    geom_bar(position="stack", stat="count")
+data %>% 
+  group_by(y) %>%
+  count(loan) %>% 
+  #ggplot(data, aes(fill=y, y=..count.., x=housing)) + 
+  ggplot(aes(x=reorder(loan,-n), y=n, fill=y)) +
+    geom_bar(stat="identity") +
+    ggtitle("How many observations having personal loan?") +
+    xlab("Loan") +
+    ylab("Count") +
+    scale_fill_brewer(palette = "Paired")
 ```
 
 ### month
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=month)) + 
-    geom_bar(position="stack", stat="count")
+#ggplot(data, aes(fill=y, y=..count.., x=month)) + 
+#    geom_bar(position="stack", stat="count")
+data %>% 
+  group_by(y) %>%
+  count(month) %>% 
+  ggplot(aes(x=reorder(month,-n), y=n, fill=y)) +
+    geom_bar(stat="identity") +
+    ggtitle("How many observations for each month?") +
+    xlab("Month") +
+    ylab("Count") +
+    scale_fill_brewer(palette = "Paired")
 ```
 
 From the plot, we can see that there are many more observation in May. However, the proportion of people subscribed are not optimal. Also, there are not many observations on December, March, October, September, but the proportion of subscriptions is pretty high.
@@ -195,17 +274,32 @@ From the plot, we can see that there are many more observation in May. However, 
 ### day_of_week
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=day_of_week)) + 
-    geom_bar(position="stack", stat="count")
+#ggplot(data, aes(fill=y, y=..count.., x=day_of_week)) + 
+#    geom_bar(position="stack", stat="count")
+data %>% 
+  group_by(y) %>%
+  count(day_of_week) %>% 
+  ggplot(aes(x=reorder(day_of_week,-n), y=n, fill=y)) +
+    geom_bar(stat="identity") +
+    ggtitle("How many observations for each last contact day of the week?") +
+    xlab("Last contact day of the week") +
+    ylab("Count") +
+    scale_fill_brewer(palette = "Paired")
 ```
 
 There aren't siginificant differences in `day_of_week`.
 
 ### duration
 
-```{r, warning = FALSE}
-ggplot(data, aes(fill=y, y=..count.., x=duration)) + 
-    geom_histogram()
+```{r, warning = FALSE, message=FALSE}
+#ggplot(data, aes(fill=y, y=..count.., x=duration)) + 
+#    geom_histogram()
+ggplot(data, aes(x = duration, color = y)) + 
+  geom_histogram(fill = "white", alpha=0.8, position="identity") +
+  ggtitle("The Distribution of duration") +
+  xlab("Duration") + 
+  ylab("Count") +
+  scale_color_brewer(palette = "Paired")
 ```
 
 When duration is near 0, almost no one subscribed. However, as duration increases, it seems that the proportion of people who subscribed increases.
@@ -214,7 +308,11 @@ When duration is near 0, almost no one subscribed. However, as duration increase
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=campaign)) + 
-    geom_bar(position="stack", stat="count")
+  geom_bar(position="stack", stat="count") +
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("How many number of contacts performed during this campaign and for this client?") +
+  xlab("Campaign") +
+  ylab("Count")
 ```
 
 ### pdays
@@ -222,21 +320,48 @@ ggplot(data, aes(fill=y, y=..count.., x=campaign)) +
 ```{r}
 # may be change level 999?
 ggplot(data, aes(fill=y, y=..count.., x=pdays)) + 
-    geom_bar(width = 100, position="stack", stat="count")
+  geom_bar(width = 100, position="stack", stat="count") +
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("How many number of days that passed by \nafter the client was last contacted from a previous campaign? \n (999 means client was not previously contacted)") +
+  xlab("Number of Days") +
+  ylab("Count")
 ```
+
+Most of clients not previouly being contacted. Therefore, we plot again except the value of 999.  
+
+```{r}
+data %>% filter(pdays!=999) %>%
+  ggplot(aes(fill=y, y=..count.., x=pdays)) + 
+    geom_bar(position="stack", stat="count") +
+    scale_fill_brewer(palette = "Paired") +
+    ggtitle("How many number of days that passed by \nafter the client was last contacted from a previous campaign?") +
+    xlab("Number of Days") +
+    ylab("Count") +
+    labs(caption="Note: The values of 999 have been discarded in this plot.")
+```
+
+Most of clients who were previously contacted were contacted less than 10 days ago. 
 
 ### previous
 
 ```{r, warning = FALSE}
 ggplot(data, aes(fill=y, y=..count.., x=previous)) + 
-    geom_bar(position="stack", stat="count")
+    geom_bar(position="stack", stat="count") +
+    scale_fill_brewer(palette = "Paired") +
+    ggtitle("How many number of contacts performed before this campaign and for this client?") +
+    xlab("Number of contacts") +
+    ylab("Count")
 ```
 
 ### poutcome
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=poutcome)) + 
-    geom_bar(position="stack", stat="count")
+    geom_bar(position="stack", stat="count") +
+    scale_fill_brewer(palette = "Paired") +
+    ggtitle("Outcome of the previous marketing campaign") +
+    xlab("Previous marketing campaign") +
+    ylab("Count")
 ```
 
 From the plot, we found that if previous marketing campagin succeeded, people are more likely to subscribe.
@@ -244,22 +369,33 @@ From the plot, we found that if previous marketing campagin succeeded, people ar
 ### emp.var.rate
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=emp.var.rate)) + 
-    geom_histogram(bins=5)
+#ggplot(data, aes(fill=y, y=..count.., x=emp.var.rate)) + 
+#  geom_histogram(bins=6, position='stack') +
+ggplot(data, aes(x=y,y=emp.var.rate,color=y)) +
+  geom_boxplot() +
+  scale_color_brewer(palette = "Paired") +
+  ggtitle("The distribution of Employment variation rate") + 
+  xlab("Employment variation rate")
 ```
 
 ### cons.price.idx
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=cons.price.idx)) + 
-    geom_histogram(bins=5)
+#ggplot(data, aes(fill=y, y=..count.., x=cons.price.idx)) + 
+#    geom_histogram(bins=5)
+ggplot(data, aes(x=y,y=cons.price.idx,color=y)) +
+  geom_boxplot() +
+  scale_color_brewer(palette = "Paired") +
+  ggtitle("The distribution of Consumer price index (monthly indicator)") + 
+  xlab("Consumer price index")
 ```
 
 ### cons.conf.idx
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=cons.conf.idx)) + 
-    geom_histogram(bins=5)
+#ggplot(data, aes(fill=y, y=..count.., x=cons.conf.idx)) + 
+#    geom_histogram(bins=5)
+
 ```
 
 ### euribor3m
