@@ -1,6 +1,9 @@
 ---
 title: "Subscription Prediction"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_float: true
 ---
 
 # Data Explanation
@@ -16,6 +19,9 @@ library(naniar)
 library(visdat)
 library(mice)
 library(ggplot2)
+library(corrplot)
+library(caret)
+library(e1071)
 ```
 
 ```{r}
@@ -65,7 +71,6 @@ data = complete(imputed_data)
 ```{r}
 # Now we can read the data directly
 data = read.csv("cleaned_data_additional_full.csv")[,-1]
-head(data)
 ```
 
 ## Variable Exploration
@@ -81,7 +86,7 @@ ggplot(data, aes(x = age, color = y)) + geom_histogram(fill = "white", alpha=0.5
 
 We can see that most of the potential subscribers are middle-aged. It also seems that even though most potential subscribers are middle-aged, the proportion of these people actually subscribed are comparably low. The proportion of young people and old people subscribing are high, but proportionally we do not have a lot of such customers.
 
-## Job
+### Job
 
 How is `job` related to `y`?
 
@@ -91,9 +96,9 @@ ggplot(data, aes(fill=y, y=..count.., x=job)) +
     coord_flip()
 ```
 
-Looks like the proportion of retired and student subscribers are also optimal.
+Looks like the proportion of retired and student subscribers are optimal.
 
-## marital status
+### marital status
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=marital)) + 
@@ -101,7 +106,7 @@ ggplot(data, aes(fill=y, y=..count.., x=marital)) +
 ```
 
 
-## education
+### education
 
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=education)) + 
@@ -109,8 +114,217 @@ ggplot(data, aes(fill=y, y=..count.., x=education)) +
   coord_flip()
 ```
 
+### default
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=default)) + 
+    geom_bar(position="stack", stat="count")
+```
+
+Looks like only few observations have `default` = yes. We look at these observations.
+
+```{r}
+# observations where default = yes
+data$y[data$default == "yes"]
+```
+
+Most of the observations did not subscribe. But we cannot say there is any pattern, since this is the case within the whole population.
+
+### contact
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=contact)) + 
+    geom_bar(position="stack", stat="count")
+```
+
+It seems that people who are contacted by celluar are more likely to subscribe.
+
+### housing
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=housing)) + 
+    geom_bar(position="stack", stat="count")
+```
+
+There aren't significant difference in the `housing` section.
+
+### loan
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=loan)) + 
+    geom_bar(position="stack", stat="count")
+```
+
+### month
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=month)) + 
+    geom_bar(position="stack", stat="count")
+```
+
+From the plot, we can see that there are many more observation in May. However, the proportion of people subscribed are not optimal. Also, there are not many observations on December, March, October, September, but the proportion of subscriptions is pretty high.
+
+### day_of_week
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=day_of_week)) + 
+    geom_bar(position="stack", stat="count")
+```
+
+There aren't siginificant differences in `day_of_week`.
+
+### duration
+
+```{r, warning = FALSE}
+ggplot(data, aes(fill=y, y=..count.., x=duration)) + 
+    geom_histogram()
+```
+
+When duration is near 0, almost no one subscribed. However, as duration increases, it seems that the proportion of people who subscribed increases.
+
+### campaign
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=campaign)) + 
+    geom_bar(position="stack", stat="count")
+```
+
+### pdays
+
+```{r}
+# may be change level 999?
+ggplot(data, aes(fill=y, y=..count.., x=pdays)) + 
+    geom_bar(width = 100, position="stack", stat="count")
+```
+
+### previous
+
+```{r, warning = FALSE}
+ggplot(data, aes(fill=y, y=..count.., x=previous)) + 
+    geom_bar(position="stack", stat="count")
+```
+
+### poutcome
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=poutcome)) + 
+    geom_bar(position="stack", stat="count")
+```
+
+From the plot, we found that if previous marketing campagin succeeded, people are more likely to subscribe.
+
+### emp.var.rate
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=emp.var.rate)) + 
+    geom_histogram(bins=5)
+```
+
+### cons.price.idx
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=cons.price.idx)) + 
+    geom_histogram(bins=5)
+```
+
+### cons.conf.idx
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=cons.conf.idx)) + 
+    geom_histogram(bins=5)
+```
+
+### euribor3m
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=euribor3m)) + 
+    geom_histogram(bins=5)
+```
+
+### nr.employed
+
+```{r}
+ggplot(data, aes(fill=y, y=..count.., x=nr.employed)) + 
+    geom_histogram(bins=4)
+```
+
+# Feature Engineering
+
+## Correlation
+
+We check the correlations of the variables.
+
+```{r}
+X = data %>%
+  select(-y)
+
+# change into integer
+for(i in 1:ncol(X)){
+  X[,i]<- as.integer(X[,i])
+}
+
+
+corr_mat=cor(X,method="s")
+corrplot(corr_mat, is.corr = FALSE, win.asp = .7, method = "circle")
+```
+
+We denote that `emp.var.rate`, `euribor3m` and `nr.employed` are highly correlated to each other.
+
+We look at the description of the three variables:
+
+1. emp.var.rate: employment variation rate - quarterly indicator (numeric)
+
+2. euribor3m: euribor 3 month rate - daily indicator (numeric)
+
+3. nr.employed: number of employees - quarterly indicator (numeric)
+
+We may consider remove `emp.var.rate` and `euribor3m` while modelling.
+
+Also, we remove the `duration` variable based on the dataset author's note: "this attribute highly affects the output target (e.g., if duration=0 then y='no'). Yet, the duration is not known before a call is performed. Also, after the end of the call y is obviously known. Thus, this input should only be included for benchmark purposes and should be discarded if the intention is to have a realistic predictive model."
+
+```{r}
+data = data %>%
+  select(-c(emp.var.rate, euribor3m, duration))
+```
+
 # Modeling
 
+## Random Forest
 
+```{r}
+# train-test split
+set.seed(2383)
+size = floor(0.75 * nrow(data))
+train_index <- sample(seq_len(nrow(data)), size = size)
+train = data[train_index,]
+test = data[-train_index,]
+```
+
+```{r, cache = TRUE}
+rf_grid = expand.grid(mtry = 1 : 6)
+
+oob = trainControl(method = "oob")
+rf_oob_tune = train(
+  y ~ .,
+  data = train,
+  method = "rf",
+  trControl = oob,
+  verbose = FALSE,
+  tuneGrid = rf_grid
+  )
+
+rf_oob_tune$bestTune
+```
+
+```{r}
+varImp(rf_oob_tune)
+```
+
+```{r}
+rf_oob_pred = predict(rf_oob_tune, test)
+rf_oob_pred_acc = sum(rf_oob_pred == test$y) / length(test$y)
+```
+
+The best tune uses `mtry` = 3. By checking the variable importance, we can see that `nr.employed`, `cons.conf.idx`, and `cons.price.idx` are the most important variables for predicting whether a client subscribes to a term deposit or not. The prediction accuracy is **0.8988055** on the test data.
 
 # Results
