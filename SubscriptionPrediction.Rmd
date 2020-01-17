@@ -393,16 +393,22 @@ ggplot(data, aes(x=y,y=cons.price.idx,color=y)) +
 ### cons.conf.idx
 
 ```{r}
-#ggplot(data, aes(fill=y, y=..count.., x=cons.conf.idx)) + 
-#    geom_histogram(bins=5)
+ggplot(data, aes(x=y,y=cons.conf.idx, color=y)) +
+  geom_boxplot() +
+  scale_color_brewer(palette = "Paired") +
+  ggtitle("The distribution of Consumer Confidence Index - monthly indicator") + 
+  xlab("Consumer confidence index")
 
 ```
 
 ### euribor3m
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=euribor3m)) + 
-    geom_histogram(bins=5)
+ggplot(data, aes(x=y,y=euribor3m, color=y)) +
+  geom_boxplot() +
+  scale_color_brewer(palette = "Paired") +
+  ggtitle("euribor 3 month rate - daily indicator") + 
+  xlab("euribor 3 month rate")
 ```
 
 ### nr.employed
@@ -410,6 +416,14 @@ ggplot(data, aes(fill=y, y=..count.., x=euribor3m)) +
 ```{r}
 ggplot(data, aes(fill=y, y=..count.., x=nr.employed)) + 
     geom_histogram(bins=4)
+
+# distribution of variable age
+ggplot(data, aes(x = nr.employed, color = y)) + 
+  geom_histogram(fill="white", alpha=0.8, position="identity", bins=4) +
+  ggtitle("Distribution of Number of Employees - Quarterly Indicator") +
+  xlab("Number of Employees - Quarterly Indicator") + 
+  ylab("Count") +
+  scale_color_brewer(palette = "Paired")
 ```
 
 # Feature Engineering
