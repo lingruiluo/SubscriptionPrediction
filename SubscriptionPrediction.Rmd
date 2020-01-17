@@ -117,7 +117,7 @@ ggplot(data, aes(x = age, color = y)) +
   scale_color_brewer(palette = "Paired")
 ```
 
-We can see that most of the potential subscribers are middle-aged. It also seems that even though most potential subscribers are middle-aged, the proportion of these people actually subscribed are comparably low. The proportion of young people and old people subscribing are high, but proportionally we do not have a lot of such customers.
+We can see that most of the potential subscribers are middle-aged. It also seems that even though most potential subscribers are middle-aged, the proportion of these people who actually subscribed are comparably low. The campaign works well in young and old people, but proportionally we do not have a lot of such customers.
 
 ### Job
 
@@ -486,7 +486,9 @@ train = data[train_index,]
 test = data[-train_index,]
 ```
 
-## Logistic 
+## Logistic
+
+
 
 ## Naive Bayes 
 
