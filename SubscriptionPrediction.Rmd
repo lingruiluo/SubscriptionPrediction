@@ -25,7 +25,6 @@ library(visdat)
 library(mice)
 library(ggplot2)
 library(corrplot)
-library(caret)
 library(e1071)
 library(plotly)
 ```
@@ -468,6 +467,7 @@ data = data %>%
 # Modeling  
 
 ```{r echo=FALSE, message=FALSE}
+library(caret)
 library(catboost)
 library(pROC)
 library(ROCR)
@@ -475,24 +475,99 @@ library(xgboost)
 library(cattonum)
 library(mltools)
 library(randomForest)
+library(naivebayes)
 ```
 
-```{r}
+```{r eval=FALSE}
 # train-test split
 set.seed(2383)
 size = floor(0.75 * nrow(data))
 train_index <- sample(seq_len(nrow(data)), size = size)
 train = data[train_index,]
 test = data[-train_index,]
+
+# save the train and test dataset to avoid higher memory 
+#write.csv(train, "train.csv")
+#write.csv(test, "test.csv")
 ```
 
-## Logistic 
+```{r}
+train <- read.csv("train.csv")
+test <- read.csv("test.csv")
+```
+
+
+## Logistic  
+
+
 
 ## Naive Bayes 
 
 
+```{r message=FALSE}
+nb_control <- trainControl(
+  method = "cv",
+  number = 10,
+  verbose = FALSE
+)
+nb_grid <- expand.grid(
+  usekernel = TRUE,
+  fL = 1,
+  adjust = 5
+)
+nb_model <- train(
+  x = train %>% select(-y),
+  y = train$y,
+  method = "nb",
+  trControl = nb_control,
+  tuneGrid = nb_grid,
+  verbose = FALSE,
+  preProc = c("center","scale")
+)
+```
+
+```{r message=FALSE}
+nb_pred = predict(nb_model, test)
+nb_pred_acc = sum(nb_pred == test$y) / length(test$y)
+cat("Prediction Accuracy Rate: ",nb_pred_acc)
+```
+
+```{r message=FALSE}
+nb_roc <- roc(as.integer(test$y),as.integer(nb_pred),direction="<")
+nb_auc <- auc(nb_roc)
+plot(nb_roc, main=paste("ROC Curve (AUC Score: ",nb_auc,")"))
+```
+
 
 ## SVM
+
+```
+svm_linear_control <- trainControl(
+  method = "cv",
+  number = 5,
+  verbose = FALSE
+)
+
+svm_linear_grid <- expand.grid(
+  C = c(0.1, 1, 10)
+)
+
+svm_linear_model <- train(
+  y~.,
+  data = train,
+  method = "svmLinear",
+  trControl = svm_linear_control,
+  tuneGrid = svm_linear_grid,
+  preProc = c("scale","center"),
+  verbose = FALSE
+)
+svm_linear_model$bestTune
+```
+
+```
+# radiao kernel 
+```
+
 
 ## Random Forest
 
@@ -536,8 +611,9 @@ Before modeling, we handle the categorical and discrete variables first.
 For variables `job`, `marital`, `education`, `month`, `day_of_week`, `poutcome`, `pdays`, `campaign` and `previous`, we use mean encoding which calculates the proportion of each category for true label (y==1) and assigns it as the corresponding value.   
 For `default`, `housing`, and `loan`, we use label encoding.  
 Last we use one hot encoding for `contact`.  
+The reason why we are using mean encoding for some categorical variables here is that mean encoding performs well on data which is high cardinality, which avoid too-high-dimensional problem in one hot encoding and inappropriate ranking information for nomial variables in label encoding. 
 
-```{r}
+```{r eval=FALSE}
 # mean encoding 
 train_copy <- train[,]
 mean_encoding <- function(dataset, categorical_col, response) {
@@ -563,14 +639,14 @@ train_copy <- merge(train_copy,mean_encoding(train_copy,campaign,y),by='campaign
 train_copy <- merge(train_copy,mean_encoding(train_copy,previous,y),by='previous') %>% select(-previous) %>% mutate(previous=freq) %>% select(-freq) 
 ```
 
-```{r}
+```{r eval=FALSE}
 # label encoding 
 train_copy$default <- as.numeric(train_copy$default)-1
 train_copy$housing <- as.numeric(train_copy$housing)-1
 train_copy$loan <- as.numeric(train_copy$loan)-1
 ```
 
-```{r}
+```{r eval=FALSE}
 # one hot encoding
 for (unique_value in unique(train_copy$contact)) {
   train_copy[paste("contact", unique_value, sep = ".")] <- ifelse(train_copy$contact == unique_value, 1, 0)
@@ -578,7 +654,7 @@ for (unique_value in unique(train_copy$contact)) {
 train_copy <- train_copy %>% select(-contact)
 ```
 
-```{r}
+```{r eval=FALSE}
 # test 
 test_copy <- test[,]
 
@@ -600,6 +676,18 @@ for (unique_value in unique(test_copy$contact)) {
   test_copy[paste("contact", unique_value, sep = ".")] <- ifelse(test_copy$contact == unique_value, 1, 0)
 }
 test_copy <- test_copy %>% select(-contact)
+```
+
+```{r eval=FALSE}
+# save encoded dataset to avoid higher memory cost
+#write.csv(train_copy, "encoded_train.csv")
+#write.csv(test_copy, "encoded_test.csv")
+```
+
+```{r}
+# read saved files instead  
+train_copy <- read.csv("encoded_train.csv")
+test_copy <- read.csv("encoded_test.csv")
 ```
 
 
