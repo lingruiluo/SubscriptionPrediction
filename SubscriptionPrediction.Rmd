@@ -374,8 +374,8 @@ From the plot, we found that if previous marketing campagin succeeded, people ar
 ggplot(data, aes(x=y,y=emp.var.rate,color=y)) +
   geom_boxplot() +
   scale_color_brewer(palette = "Paired") +
-  ggtitle("The distribution of Employment variation rate") + 
-  xlab("Employment variation rate")
+  ggtitle("The distribution of Employment variation rate (quarterly indicator)") + 
+  ylab("Employment variation rate")
 ```
 
 ### cons.price.idx
@@ -387,7 +387,7 @@ ggplot(data, aes(x=y,y=cons.price.idx,color=y)) +
   geom_boxplot() +
   scale_color_brewer(palette = "Paired") +
   ggtitle("The distribution of Consumer price index (monthly indicator)") + 
-  xlab("Consumer price index")
+  ylab("Consumer price index")
 ```
 
 ### cons.conf.idx
@@ -396,8 +396,8 @@ ggplot(data, aes(x=y,y=cons.price.idx,color=y)) +
 ggplot(data, aes(x=y,y=cons.conf.idx, color=y)) +
   geom_boxplot() +
   scale_color_brewer(palette = "Paired") +
-  ggtitle("The distribution of Consumer Confidence Index - monthly indicator") + 
-  xlab("Consumer confidence index")
+  ggtitle("The distribution of Consumer Confidence Index (monthly indicator)") + 
+  ylab("Consumer confidence index")
 
 ```
 
@@ -407,21 +407,21 @@ ggplot(data, aes(x=y,y=cons.conf.idx, color=y)) +
 ggplot(data, aes(x=y,y=euribor3m, color=y)) +
   geom_boxplot() +
   scale_color_brewer(palette = "Paired") +
-  ggtitle("euribor 3 month rate - daily indicator") + 
-  xlab("euribor 3 month rate")
+  ggtitle("The distribution of Euribor 3 month rate (daily indicator)") + 
+  ylab("Euribor 3 month rate")
 ```
 
 ### nr.employed
 
 ```{r}
-ggplot(data, aes(fill=y, y=..count.., x=nr.employed)) + 
-    geom_histogram(bins=4)
+#ggplot(data, aes(fill=y, y=..count.., x=nr.employed)) + 
+#    geom_histogram(bins=4)
 
 # distribution of variable age
 ggplot(data, aes(x = nr.employed, color = y)) + 
-  geom_histogram(fill="white", alpha=0.8, position="identity", bins=4) +
-  ggtitle("Distribution of Number of Employees - Quarterly Indicator") +
-  xlab("Number of Employees - Quarterly Indicator") + 
+  geom_histogram(fill="white",alpha=0.8, position="identity", bins=4) +
+  ggtitle("The distribution of number of employees (quarterly indicator)") +
+  xlab("Number of Employees") + 
   ylab("Count") +
   scale_color_brewer(palette = "Paired")
 ```
@@ -438,7 +438,7 @@ X = data %>%
 
 # change into integer
 for(i in 1:ncol(X)){
-  X[,i]<- as.integer(X[,i])
+  X[,i] <- as.integer(X[,i])
 }
 
 
@@ -465,9 +465,17 @@ data = data %>%
   select(-c(emp.var.rate, euribor3m, duration))
 ```
 
-# Modeling
+# Modeling  
 
-## Random Forest
+```{r echo=FALSE, message=FALSE}
+library(catboost)
+library(pROC)
+library(ROCR)
+library(xgboost)
+library(cattonum)
+library(mltools)
+library(randomForest)
+```
 
 ```{r}
 # train-test split
@@ -477,6 +485,16 @@ train_index <- sample(seq_len(nrow(data)), size = size)
 train = data[train_index,]
 test = data[-train_index,]
 ```
+
+## Logistic 
+
+## Naive Bayes 
+
+
+
+## SVM
+
+## Random Forest
 
 ```{r, cache = TRUE}
 rf_grid = expand.grid(mtry = 1 : 6)
@@ -495,14 +513,204 @@ rf_oob_tune$bestTune
 ```
 
 ```{r}
-varImp(rf_oob_tune)
+varImp(rf_oob_tune, scale = FALSE)
 ```
 
 ```{r}
 rf_oob_pred = predict(rf_oob_tune, test)
 rf_oob_pred_acc = sum(rf_oob_pred == test$y) / length(test$y)
+cat("Prediction Accuracy Rate: ",rf_oob_pred_acc)
 ```
 
-The best tune uses `mtry` = 3. By checking the variable importance, we can see that `nr.employed`, `cons.conf.idx`, and `cons.price.idx` are the most important variables for predicting whether a client subscribes to a term deposit or not. The prediction accuracy is **0.8988055** on the test data.
+The best tune uses `mtry` = 3. By checking the variable importance, we can see that `nr.employed`, `cons.conf.idx`, and `cons.price.idx` are the most important variables for predicting whether a client subscribes to a term deposit or not. The prediction accuracy is **`r rf_oob_pred_acc`** on the test data.  
+
+```{r message=FALSE}
+rf_roc <- roc(as.integer(test$y),as.integer(rf_oob_pred),direction="<")
+rf_auc <- auc(rf_roc)
+plot(rf_roc, main=paste("ROC Curve (AUC Score: ",rf_auc,")"))
+```
+
+## XGBoost 
+
+Before modeling, we handle the categorical and discrete variables first.  
+For variables `job`, `marital`, `education`, `month`, `day_of_week`, `poutcome`, `pdays`, `campaign` and `previous`, we use mean encoding which calculates the proportion of each category for true label (y==1) and assigns it as the corresponding value.   
+For `default`, `housing`, and `loan`, we use label encoding.  
+Last we use one hot encoding for `contact`.  
+
+```{r}
+# mean encoding 
+train_copy <- train[,]
+mean_encoding <- function(dataset, categorical_col, response) {
+  categorical_col <- enquo(categorical_col)
+  response <- enquo(response)
+  temp <- dataset %>% 
+    group_by(!!categorical_col,!!response) %>% 
+    summarise(n=n()) %>%
+    mutate(freq=n/sum(n)) %>%
+    filter(!!response=='yes') %>%
+    select(c(!!categorical_col,freq))
+  return(temp)
+}
+
+train_copy <- merge(train_copy,mean_encoding(train_copy,job,y),by='job') %>% select(-job) %>% mutate(job=freq) %>% select(-freq) 
+train_copy <- merge(train_copy,mean_encoding(train_copy,marital,y),by='marital') %>% select(-marital) %>% mutate(marital=freq) %>% select(-freq) 
+train_copy <- merge(train_copy,mean_encoding(train_copy,education,y),by='education') %>% select(-education) %>% mutate(education=freq) %>% select(-freq) 
+train_copy <- merge(train_copy,mean_encoding(train_copy,month,y),by='month') %>% select(-month) %>% mutate(month=freq) %>% select(-freq) 
+train_copy <- merge(train_copy,mean_encoding(train_copy,day_of_week,y),by='day_of_week') %>% select(-day_of_week) %>% mutate(day_of_week=freq) %>% select(-freq) 
+train_copy <- merge(train_copy,mean_encoding(train_copy,poutcome,y),by='poutcome') %>% select(-poutcome) %>% mutate(poutcome=freq) %>% select(-freq) 
+train_copy <- merge(train_copy,mean_encoding(train_copy,pdays,y),by='pdays') %>% select(-pdays) %>% mutate(pdays=freq) %>% select(-freq) 
+train_copy <- merge(train_copy,mean_encoding(train_copy,campaign,y),by='campaign') %>% select(-campaign) %>% mutate(campaign=freq) %>% select(-freq) 
+train_copy <- merge(train_copy,mean_encoding(train_copy,previous,y),by='previous') %>% select(-previous) %>% mutate(previous=freq) %>% select(-freq) 
+```
+
+```{r}
+# label encoding 
+train_copy$default <- as.numeric(train_copy$default)-1
+train_copy$housing <- as.numeric(train_copy$housing)-1
+train_copy$loan <- as.numeric(train_copy$loan)-1
+```
+
+```{r}
+# one hot encoding
+for (unique_value in unique(train_copy$contact)) {
+  train_copy[paste("contact", unique_value, sep = ".")] <- ifelse(train_copy$contact == unique_value, 1, 0)
+}
+train_copy <- train_copy %>% select(-contact)
+```
+
+```{r}
+# test 
+test_copy <- test[,]
+
+test_copy <- merge(test_copy,mean_encoding(test_copy,job,y),by='job') %>% select(-job) %>% mutate(job=freq) %>% select(-freq) 
+test_copy <- merge(test_copy,mean_encoding(test_copy,marital,y),by='marital') %>% select(-marital) %>% mutate(marital=freq) %>% select(-freq) 
+test_copy <- merge(test_copy,mean_encoding(test_copy,education,y),by='education') %>% select(-education) %>% mutate(education=freq) %>% select(-freq) 
+test_copy <- merge(test_copy,mean_encoding(test_copy,month,y),by='month') %>% select(-month) %>% mutate(month=freq) %>% select(-freq) 
+test_copy <- merge(test_copy,mean_encoding(test_copy,day_of_week,y),by='day_of_week') %>% select(-day_of_week) %>% mutate(day_of_week=freq) %>% select(-freq) 
+test_copy <- merge(test_copy,mean_encoding(test_copy,poutcome,y),by='poutcome') %>% select(-poutcome) %>% mutate(poutcome=freq) %>% select(-freq) 
+test_copy <- merge(test_copy,mean_encoding(test_copy,pdays,y),by='pdays') %>% select(-pdays) %>% mutate(pdays=freq) %>% select(-freq) 
+test_copy <- merge(test_copy,mean_encoding(test_copy,campaign,y),by='campaign') %>% select(-campaign) %>% mutate(campaign=freq) %>% select(-freq) 
+test_copy <- merge(test_copy,mean_encoding(test_copy,previous,y),by='previous') %>% select(-previous) %>% mutate(previous=freq) %>% select(-freq) 
+
+test_copy$default <- as.numeric(test_copy$default)-1
+test_copy$housing <- as.numeric(test_copy$housing)-1
+test_copy$loan <- as.numeric(test_copy$loan)-1
+
+for (unique_value in unique(test_copy$contact)) {
+  test_copy[paste("contact", unique_value, sep = ".")] <- ifelse(test_copy$contact == unique_value, 1, 0)
+}
+test_copy <- test_copy %>% select(-contact)
+```
+
+
+Next, we are ready to build XGBoost model.  
+
+```{r}
+xgb_control <- trainControl(
+  method = "cv",
+  number = 5,
+  search = "random",
+  savePredictions = TRUE,
+  classProbs = TRUE
+)
+
+xgb_grid <- expand.grid(
+  eta=c(0.01, 0.1, 1),
+  gamma=c(0.1, 1, 10),
+  max_depth=c(3,4,6,8),
+  colsample_bytree=c(0.5,0.7,0.9),
+  nrounds=10,
+  min_child_weight=c(2,6,10),
+  subsample = c(0.7,0.9)
+  )
+
+xgb_model <- train(
+  y~.,
+  data = train_copy,
+  method = "xgbTree",
+  metric = "Accuracy",
+  nthread = 2,
+  verbosity = 0,
+  tuneGrid = xgb_grid,
+  trControl = xgb_control
+)
+xgb_model$bestTune
+```
+
+```{r}
+xgb_pred <- predict(xgb_model, test_copy)
+xgb_pred_acc <- sum(xgb_pred == test_copy$y) / length(test_copy$y)
+cat("Prediction Accuracy Rate: ",xgb_pred_acc)
+```
+
+```{r}
+varImp(xgb_model,scale = FALSE)
+```
+
+```{r message=FALSE}
+xgb_roc <- roc(as.integer(test_copy$y),as.integer(xgb_pred),direction="<")
+xgb_auc <- auc(xgb_roc)
+plot(xgb_roc, main=paste("ROC Curve (AUC Score: ",xgb_auc,")"))
+```
+
+
+## CatBoost  
+
+We notice that there are many categorical variables, and also some discrete variables which can also be treaded as categorical. CatBoost is a powerful model which performance on dataset with many categorical variables in that it has various methods to handle categorical variables. However, since some of categorical variables seem to be high cardinal, the result may not be as good as we expect.  
+
+```{r}
+# extract features and labels for modeling
+features <- data %>% select(-c(y))
+labels <- data$y
+```
+
+```{r message=FALSE}
+cat_control <- trainControl(
+  method = "cv",
+  number = 5,
+  search = "random",
+  classProbs = TRUE
+)
+cat_grid <- expand.grid(
+  depth = c(4,6,8),
+  learning_rate = c(0.01, 0.1, 1),
+  l2_leaf_reg = c(0.1,1,2,4,6),
+  rsm = 0.95,
+  border_count = 64,
+  iterations = 10
+  
+)
+cat_model <- train(
+  x = features,
+  y = labels,
+  method = catboost.caret,
+  metric = "Accuracy",
+  bootstrap_type = 'Bayesian',
+  maximize = TRUE,
+  logging_level='Silent',
+  tuneGrid = cat_grid,
+  trControl = cat_control
+)
+cat_model$bestTune
+```
+
+```{r}
+cat_pred <- predict(cat_model, test)
+cat_pred_acc <- sum(cat_pred == test$y) / length(test$y)
+cat("Prediction Accuracy Rate: ",cat_pred_acc)
+```
+
+```{r}
+varImp(cat_model,scale = FALSE)
+```
+
+```{r, message=FALSE}
+#table(test$y, cat_pred)
+cat_roc <- roc(as.integer(test$y),as.integer(cat_pred),direction="<")
+cat_auc <- auc(cat_roc)
+plot(cat_roc, main=paste("ROC Curve (AUC Score: ",cat_auc,")"))
+```
+
+The prediction accuracy rate on our test dataset is **`r cat_pred_acc`**, and the AUC score is `r cat_auc`. Our best parameters selected from the grid search is also shown above. From our best model, `nr.employed` is the most important variable. 
 
 # Results
