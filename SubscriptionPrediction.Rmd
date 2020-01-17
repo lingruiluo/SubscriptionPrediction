@@ -497,7 +497,7 @@ test <- read.csv("test.csv")
 ## Logistic
 
 ```{r, cache = TRUE}
-logit_mod <- glm(y ~ ., data = data, family = binomial)
+logit_mod <- glm(y ~ ., data = train, family = binomial)
 ```
 
 Since there are much less observations who subscribed to a term deposit, we define a threshold that if the predicted value is greater than 0.5, we treat it as subscribed.
@@ -508,13 +508,13 @@ logit_pred = ifelse(logit_pred > 0.5, 1, 0)
 logit_pred_acc = mean(logit_pred == test$y)
 ```
 
-The accuracy achieved is 0.9019132 To further invest on this model, we look at the confusion matrix.
+The accuracy achieved is `r logit_pred_acc` To further invest on this model, we look at the confusion matrix.
 
 ```{r}
 table(test$y, logit_pred > 0.5)
 ```
 
-We found that about 1.45% people who did not subscribe but are predicted as subscribed. About 74.51312% people who subscribed but are predicted as not subscribed. We would like to try with a more rigorous threshold to reduce the true negative rates. After trying several thresholds, we found that with threshold = 0.1, the false positive rate is the lowest. However, it classifies too many people who did not subscribe into subscribed, which could result in too much effort in reaching out people who are supposed to subscribe. Therefore, we decide to use a threshold of 0.2, which makes balances the false positive rate the the true negative rate.
+We found that about 1.42% people who did not subscribe but are predicted as subscribed. About 74.93649% people who subscribed but are predicted as not subscribed. We would like to try with a more rigorous threshold to reduce the true negative rates. After trying several thresholds, we found that with threshold = 0.1, the false positive rate is the lowest. However, it classifies too many people who did not subscribe into subscribed, which could result in too much effort in reaching out people who are supposed to subscribe. Therefore, we decide to use a threshold of 0.2, which makes balances the false positive rate the the true negative rate.
 
 ```{r}
 logit_pred = predict(logit_mod, test, type = "response")
@@ -526,7 +526,7 @@ logit_pred_acc = mean(logit_pred == test$y)
 table(test$y, logit_pred > 0.2)
 ```
 
-The overall accuracy decreases to 0.8692823, since it classifies more people who did not subscribe into subscribe. However, the false positive rate actually declines, the goal to target potential customers are better achieved without contacting too many clients.
+The overall accuracy decreases to `r 0.8679227`, since it classifies more people who did not subscribe into subscribe. However, the false positive rate actually declines to 42.1%, the goal to target potential customers are better achieved without contacting too many clients.
 
 Even though the overall accuracy is pretty much high, we cannot simply say it is good since we are starting from a pretty good starting point. We are going to try more advanced models next.
 
