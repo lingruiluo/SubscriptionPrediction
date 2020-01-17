@@ -27,6 +27,7 @@ library(ggplot2)
 library(corrplot)
 library(e1071)
 library(plotly)
+library(ggmosaic)
 ```
 
 ```{r}
@@ -64,6 +65,12 @@ There is no "direct" missing value in the dataset. However, as we mentioned abov
 
 ```{r echo=FALSE}
 data[data == "unknown"] = NA
+```
+
+We also encode the response variable `y` into 1 if the client subscribed to a term deposit and 0 otherwise.
+
+```{r}
+levels(data$y) = c(0, 1)
 ```
 
 After replacing all **unknown** values, let's plot the missing values.
@@ -116,7 +123,7 @@ ggplot(data, aes(x = age, color = y)) +
   scale_color_brewer(palette = "Paired")
 ```
 
-We can see that most of the potential subscribers are middle-aged. It also seems that even though most potential subscribers are middle-aged, the proportion of these people actually subscribed are comparably low. The proportion of young people and old people subscribing are high, but proportionally we do not have a lot of such customers.
+We can see that most of the potential subscribers are middle-aged. It also seems that even though most potential subscribers are middle-aged, the proportion of these people who actually subscribed are comparably low. The campaign works well in young and old people, but proportionally we do not have a lot of such customers.
 
 ### Job
 
@@ -216,41 +223,31 @@ data %>%
     scale_fill_brewer(palette = "Paired")
 ```
 
-It seems that people who are contacted by celluar are more likely to subscribe.
+The plot shows that eople who are contacted by celluar phone are more likely to subscribe.
 
 ### housing
 
 ```{r}
-data %>% 
-  group_by(y) %>%
-  count(housing) %>% 
-  #ggplot(data, aes(fill=y, y=..count.., x=housing)) + 
-  ggplot(aes(x=reorder(housing,-n), y=n, fill=y)) +
-    geom_bar(stat="identity") +
-    ggtitle("How many observations having housing loan?") +
-    xlab("Housing") +
-    ylab("Count") +
-    scale_fill_brewer(palette = "Paired")
+ggplot(data = data) +
+   geom_mosaic(aes(x = product(y, housing), fill = housing), na.rm=TRUE) + 
+  labs(x = "loan ", y = 'Subscribed', title='How Is Housing Related to the Results?') +
+  scale_fill_brewer(palette = "Paired")
 ```
 
-There aren't significant difference in the `housing` section.
+The `housing` variable has only little affect on the results.
 
 ### loan
 
 ```{r}
 #ggplot(data, aes(fill=y, y=..count.., x=loan)) + 
 #    geom_bar(position="stack", stat="count")
-data %>% 
-  group_by(y) %>%
-  count(loan) %>% 
-  #ggplot(data, aes(fill=y, y=..count.., x=housing)) + 
-  ggplot(aes(x=reorder(loan,-n), y=n, fill=y)) +
-    geom_bar(stat="identity") +
-    ggtitle("How many observations having personal loan?") +
-    xlab("Loan") +
-    ylab("Count") +
-    scale_fill_brewer(palette = "Paired")
+ggplot(data = data) +
+   geom_mosaic(aes(x = product(y, loan), fill = loan), na.rm=TRUE) + 
+  labs(x = "loan ", y = 'Subscribed', title='How Is Loan Related to the Results?') +
+  scale_fill_brewer(palette = "Paired")
 ```
+
+The `loan` variable has only little affect on the results.
 
 ### month
 
@@ -497,9 +494,41 @@ test <- read.csv("test.csv")
 ```
 
 
-## Logistic  
+## Logistic
 
+```{r, cache = TRUE}
+logit_mod <- glm(y ~ ., data = data, family = binomial)
+```
 
+Since there are much less observations who subscribed to a term deposit, we define a threshold that if the predicted value is greater than 0.5, we treat it as subscribed.
+
+```{r, message = FALSE}
+logit_pred = predict(logit_mod, test, type = "response")
+logit_pred = ifelse(logit_pred > 0.5, 1, 0)
+logit_pred_acc = mean(logit_pred == test$y)
+```
+
+The accuracy achieved is 0.9019132 To further invest on this model, we look at the confusion matrix.
+
+```{r}
+table(test$y, logit_pred > 0.5)
+```
+
+We found that about 1.45% people who did not subscribe but are predicted as subscribed. About 74.51312% people who subscribed but are predicted as not subscribed. We would like to try with a more rigorous threshold to reduce the true negative rates. After trying several thresholds, we found that with threshold = 0.1, the false positive rate is the lowest. However, it classifies too many people who did not subscribe into subscribed, which could result in too much effort in reaching out people who are supposed to subscribe. Therefore, we decide to use a threshold of 0.2, which makes balances the false positive rate the the true negative rate.
+
+```{r}
+logit_pred = predict(logit_mod, test, type = "response")
+logit_pred = ifelse(logit_pred > 0.2, 1, 0)
+logit_pred_acc = mean(logit_pred == test$y)
+```
+
+```{r}
+table(test$y, logit_pred > 0.2)
+```
+
+The overall accuracy decreases to 0.8692823, since it classifies more people who did not subscribe into subscribe. However, the false positive rate actually declines, the goal to target potential customers are better achieved without contacting too many clients.
+
+Even though the overall accuracy is pretty much high, we cannot simply say it is good since we are starting from a pretty good starting point. We are going to try more advanced models next.
 
 ## Naive Bayes 
 
