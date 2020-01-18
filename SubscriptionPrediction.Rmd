@@ -470,11 +470,6 @@ library(randomForest)
 library(naivebayes)
 ```
 
-We encode the response variable `y` into 1 if the client subscribed to a term deposit and 0 otherwise.
-
-```{r}
-levels(data$y) = c(0, 1)
-```
 
 ```{r eval=FALSE}
 # train-test split
@@ -482,42 +477,42 @@ set.seed(2383)
 size = floor(0.75 * nrow(data))
 train_index <- sample(seq_len(nrow(data)), size = size)
 train = data[train_index,]
+train_X = train %>% select(-y)
 test = data[-train_index,]
-
-# save the train and test dataset to avoid higher memory 
-#write.csv(train, "train.csv")
-#write.csv(test, "test.csv")
-```
-
-```{r}
-train <- read.csv("train.csv") %>% select(-X)
-test <- read.csv("test.csv") %>% select(-X)
+test_X = test %>% select(-y)
 ```
 
 
 ## Logistic
 
+```{r}
+train_logit <- train[,]
+test_logit <- test[,]
+levels(train_logit$y) <- c(0,1)
+levels(test_logit$y) <- c(0,1)
+```
+
 ```{r, cache = TRUE}
-logit_mod <- glm(y ~ ., data = train, family = binomial)
+logit_mod <- glm(y ~ ., data = train_logit, family = binomial)
 ```
 
 Since there are much less observations who subscribed to a term deposit, we define a threshold that if the predicted value is greater than 0.5, we treat it as subscribed.
 
 ```{r, message = FALSE}
-logit_pred = predict(logit_mod, test, type = "response")
+logit_pred = logit_mod %>% predict(test_X , type = "response")
 logit_pred = ifelse(logit_pred > 0.5, 1, 0)
-logit_pred_acc = mean(logit_pred == test$y)
+logit_pred_acc = mean(logit_pred == test_logit$y)
 cat("Prediction Accuracy Rate: ",logit_pred_acc)
 ```
 
-The accuracy achieved is 0.9019132 To further invest on this model, we look at the confusion matrix.
+The accuracy achieved is `r logit_pred_acc` To further invest on this model, we look at the confusion matrix.
 
 ```{r}
-table(test$y, logit_pred > 0.5)
+table(test_logit$y, logit_pred > 0.5)
 ```
 
 ```{r message=FALSE}
-logit_roc <- roc(test$y,logit_pred,direction="<")
+logit_roc <- roc(test_logit$y,logit_pred,direction="<")
 logit_auc <- auc(logit_roc)
 plot(logit_roc, main=paste("ROC Curve (AUC Score: ",logit_auc,")"))
 ```
@@ -525,25 +520,26 @@ plot(logit_roc, main=paste("ROC Curve (AUC Score: ",logit_auc,")"))
 We found that about `r 128/(8988+128)`% people who did not subscribe but are predicted as subscribed. About `r 885/(885+296)`% people who subscribed but are predicted as not subscribed. We would like to try with a more rigorous threshold to reduce the true negative rates. After trying several thresholds, we found that with threshold = 0.1, the false positive rate is the lowest. However, it classifies too many people who did not subscribe into subscribed, which could result in too much effort in reaching out people who are supposed to subscribe. Therefore, we decide to use a threshold of 0.2, which makes balances the false positive rate the the true negative rate.
 
 ```{r}
-logit_pred = predict(logit_mod, test, type = "response")
+logit_pred = predict(logit_mod, test_X, type = "response")
 logit_pred = ifelse(logit_pred > 0.2, 1, 0)
-logit_pred_acc = mean(logit_pred == test$y)
+logit_pred_acc = mean(logit_pred == test_logit$y)
 cat("Prediction Accuracy Rate: ",logit_pred_acc)
 ```
 
 ```{r}
-table(test$y, logit_pred > 0.2)
+table(test_logit$y, logit_pred > 0.2)
 ```
 
+
 ```{r message=FALSE}
-logit_roc <- roc(test$y,logit_pred,direction="<")
+logit_roc <- roc(test_logit$y,logit_pred,direction="<")
 logit_auc <- auc(logit_roc)
 plot(logit_roc, main=paste("ROC Curve (AUC Score: ",logit_auc,")"))
 ```
 
-The overall accuracy decreases to `r logit_pred_acc`, since it classifies more people who did not subscribe into subscribe. However, the false positive rate actually declines, the goal to target potential customers is better achieved without contacting too many clients.
+The overall accuracy decreases to `r logit_pred_acc`, since it classifies more people who did not subscribe into subscribe. However, the false positive rate actually declines to `r 855/(855+8261)`%, the goal to target potential customers are better achieved without contacting too many clients.
 
-Even though the overall accuracy is pretty much high, we cannot simply say it is good since we are starting from a pretty good starting point. We are going to try more advanced models next.
+The model works well in identifying potential customers. We will try more advanced models next.
 
 
 ## Naive Bayes 
@@ -562,7 +558,7 @@ nb_grid <- expand.grid(
 )
 nb_model <- train(
   x = train %>% select(-y),
-  y = ifelse(train$y==0,'no','yes'),
+  y = train$y,
   method = "nb",
   trControl = nb_control,
   tuneGrid = nb_grid,
@@ -571,7 +567,7 @@ nb_model <- train(
 ```
 
 ```{r message=FALSE, echo=FALSE}
-nb_pred = as.numeric(predict(nb_model, test))-1
+nb_pred = predict(nb_model, test)
 nb_pred_acc = sum(nb_pred == test$y) / length(test$y)
 ```
 
@@ -665,7 +661,7 @@ gb_grid <-  expand.grid(interaction.depth = c(3, 5, 9),
                         shrinkage = 0.1,
                         n.minobsinnode = 20)
 
-gb_model <- train(ifelse(y==0,'no','yes') ~ ., data = train, 
+gb_model <- train(y ~ ., data = train, 
                  method = "gbm", 
                  trControl = gb_control, 
                  verbose = FALSE, 
@@ -673,13 +669,13 @@ gb_model <- train(ifelse(y==0,'no','yes') ~ ., data = train,
 ```
 
 ```{r}
-gb_pred <- as.numeric(predict(gb_model, test))-1
+gb_pred <- predict(gb_model, test)
 gb_pred_acc <- sum(gb_pred == test$y) / length(test$y)
 cat("Prediction Accuracy Rate: ",gb_pred_acc)
 ```
 
 ```{r message=FALSE}
-gb_roc <- roc(test$y,gb_pred,direction="<")
+gb_roc <- roc(as.integer(test$y),as.integer(gb_pred),direction="<")
 gb_auc <- auc(gb_roc)
 plot(gb_roc, main=paste("ROC Curve (AUC Score: ",gb_auc,")"))
 ```
@@ -709,7 +705,7 @@ xgb_grid <- expand.grid(
   )
 
 xgb_model <- train(
-  ifelse(y==0,'no','yes')~.,
+  y ~.,
   data = train,
   method = "xgbTree",
   metric = "Accuracy",
@@ -722,7 +718,7 @@ xgb_model$bestTune
 ```
 
 ```{r}
-xgb_pred <- as.numeric(predict(xgb_model, test))-1
+xgb_pred <- predict(xgb_model, test)
 xgb_pred_acc <- sum(xgb_pred == test$y) / length(test$y)
 cat("Prediction Accuracy Rate: ",xgb_pred_acc)
 ```
@@ -732,7 +728,7 @@ varImp(xgb_model,scale = FALSE)
 ```
 
 ```{r message=FALSE}
-xgb_roc <- roc(test$y,xgb_pred,direction="<")
+xgb_roc <- roc(as.integer(test$y),as.integer(xgb_pred),direction="<")
 xgb_auc <- auc(xgb_roc)
 plot(xgb_roc, main=paste("ROC Curve (AUC Score: ",xgb_auc,")"))
 ```
@@ -746,8 +742,7 @@ We notice that there are many categorical variables, and also some discrete vari
 ```{r}
 # extract features and labels for modeling
 features <- train %>% select(-y)
-labels <- as.factor(train$y)
-levels(labels) <- c('no','yes')
+labels <- train$y
 ```
 
 ```{r message=FALSE}
@@ -781,8 +776,7 @@ cat_model$bestTune
 ```
 
 ```{r}
-cat_pred <- as.factor(predict(cat_model, test))
-levels(cat_pred) <- c(0,1)
+cat_pred <- predict(cat_model, test)
 cat_pred_acc <- sum(cat_pred == test$y) / length(test$y)
 cat("Prediction Accuracy Rate: ",cat_pred_acc)
 ```
@@ -792,8 +786,7 @@ varImp(cat_model,scale = FALSE)
 ```
 
 ```{r, message=FALSE}
-#table(test$y, cat_pred)
-cat_roc <- roc(as.numeric(test$y),as.numeric(cat_pred),direction="<")
+cat_roc <- roc(as.integer(test$y),as.integer(cat_pred),direction="<")
 cat_auc <- auc(cat_roc)
 plot(cat_roc, main=paste("ROC Curve (AUC Score: ",cat_auc,")"))
 ```
