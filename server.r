@@ -41,7 +41,12 @@ shinyServer(
     })
     
     output$text.output <- renderText({
-      prediction()
+      if (prediction() == 1){
+        "Based on the information of the client, we expect he/she will subscribe to a term deposit"
+      }
+      else{
+        "Based on the information of the client, we expect he/she will subscribe to a term deposit."
+      }
     })
 
   }
