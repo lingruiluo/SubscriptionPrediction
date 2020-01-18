@@ -4,7 +4,7 @@ shinyUI(
     sidebarPanel(
       numericInput('age', 'Age', 0,
                    min = 0, max = 120),
-      selectInput('job', 'Job', c('admin','blue-collar',
+      selectInput('job', 'Job', c('admin.','blue-collar',
                                   'entrepreneur','housemaid',
                                   'management','retired',
                                   'self-employed','services',
@@ -18,9 +18,8 @@ shinyUI(
       radioButtons('default', 'Has credit in default?', c('yes', 'no')),
       radioButtons('housing', 'Has housing loan?', c('yes', 'no')),
       radioButtons('loan', 'Has personal loan?', c('yes', 'no')),
-      radioButtons('contact', 'Contact communication type?', c('celluar', 'telephone')),
-      selectInput('month', 'Last contact month of year', c('jan','feb',
-                                                           'mar','apr',
+      radioButtons('contact', 'Contact communication type?', c('cellular', 'telephone')),
+      selectInput('month', 'Last contact month of year', c('mar','apr',
                                                            'may','jun',
                                                            'jul','aug',
                                                            'sep','oct',
@@ -32,7 +31,10 @@ shinyUI(
       
       numericInput('campaign', 'Number of contacts performed during the campaign for this client',
                    0, min = 0, max = 200),
-      numericInput('numeric', 'Number of contacts performed before this campaign for this client',
+      numericInput('pdays', 'Number of days that passed by after the client 
+                   was last contacted from a previous campaign',
+                   0, min = 0, max = 999),
+      numericInput('previous', 'Number of contacts performed before this campaign for this client',
                    0, min = 0, max = 200),
       radioButtons('poutcome', 'Outcome of the previous marketing campaign', c('failure','nonexistent','success')),
       numericInput('cons.price.idx', 'Consumer price index - monthly indicator',
@@ -43,7 +45,7 @@ shinyUI(
                    0, min = 0, max = 1000000)
     ),
     mainPanel(
-      plotOutput('plot1')
+      textOutput('text.output')
     )
   )
 )
