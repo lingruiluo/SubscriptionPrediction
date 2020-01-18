@@ -13,7 +13,7 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 
 # Data Explanation
 
-This dataset has been dowloaded from UCI Machine Learning Repository. "The data is related with direct marketing campaigns of a Portuguese banking institution. The marketing campaigns were based on phone calls. Often, more than one contact to the same client was required, in order to access if the product (bank term deposit) would be ('yes') or not ('no') subscribed." (See https://archive.ics.uci.edu/ml/datasets/bank+marketing). See also the `dataset_description.txt` and `attribute_info.txt` for explanation of the datasets and variables.
+This dataset has been dowloaded from UCI Machine Learning Repository. "The data is related with direct marketing campaigns of a Portuguese banking institution. The marketing campaigns were based on phone calls. Often, more than one contact to the same client was required, in order to access if the product (bank term deposit) would be ('yes') or not ('no') subscribed." (See https://archive.ics.uci.edu/ml/datasets/bank+marketing ). See also the `dataset_description.txt` and `attribute_info.txt` for explanation of the datasets and variables.
 
 # Data Preparation
 
@@ -67,11 +67,6 @@ There is no "direct" missing value in the dataset. However, as we mentioned abov
 data[data == "unknown"] = NA
 ```
 
-We also encode the response variable `y` into 1 if the client subscribed to a term deposit and 0 otherwise.
-
-```{r}
-levels(data$y) = c(0, 1)
-```
 
 After replacing all **unknown** values, let's plot the missing values.
 
@@ -88,7 +83,7 @@ imputed_data = mice(data, maxit = 1, method = 'pmm', seed = 6)
 data = complete(imputed_data)
 
 # save the data
-# write.csv(data, "cleaned_data_additional_full.csv")
+#write.csv(data, "cleaned_data_additional_full.csv")
 ```
 
 ```{r echo=TRUE}
@@ -475,6 +470,12 @@ library(randomForest)
 library(naivebayes)
 ```
 
+We encode the response variable `y` into 1 if the client subscribed to a term deposit and 0 otherwise.
+
+```{r}
+levels(data$y) = c(0, 1)
+```
+
 ```{r eval=FALSE}
 # train-test split
 set.seed(2383)
@@ -489,15 +490,15 @@ test = data[-train_index,]
 ```
 
 ```{r}
-train <- read.csv("train.csv")
-test <- read.csv("test.csv")
+train <- read.csv("train.csv") %>% select(-X)
+test <- read.csv("test.csv") %>% select(-X)
 ```
 
 
 ## Logistic
 
 ```{r, cache = TRUE}
-logit_mod <- glm(y ~ ., data = data, family = binomial)
+logit_mod <- glm(y ~ ., data = train, family = binomial)
 ```
 
 Since there are much less observations who subscribed to a term deposit, we define a threshold that if the predicted value is greater than 0.5, we treat it as subscribed.
@@ -506,6 +507,7 @@ Since there are much less observations who subscribed to a term deposit, we defi
 logit_pred = predict(logit_mod, test, type = "response")
 logit_pred = ifelse(logit_pred > 0.5, 1, 0)
 logit_pred_acc = mean(logit_pred == test$y)
+cat("Prediction Accuracy Rate: ",logit_pred_acc)
 ```
 
 The accuracy achieved is 0.9019132 To further invest on this model, we look at the confusion matrix.
@@ -514,26 +516,40 @@ The accuracy achieved is 0.9019132 To further invest on this model, we look at t
 table(test$y, logit_pred > 0.5)
 ```
 
-We found that about 1.45% people who did not subscribe but are predicted as subscribed. About 74.51312% people who subscribed but are predicted as not subscribed. We would like to try with a more rigorous threshold to reduce the true negative rates. After trying several thresholds, we found that with threshold = 0.1, the false positive rate is the lowest. However, it classifies too many people who did not subscribe into subscribed, which could result in too much effort in reaching out people who are supposed to subscribe. Therefore, we decide to use a threshold of 0.2, which makes balances the false positive rate the the true negative rate.
+```{r message=FALSE}
+logit_roc <- roc(test$y,logit_pred,direction="<")
+logit_auc <- auc(logit_roc)
+plot(logit_roc, main=paste("ROC Curve (AUC Score: ",logit_auc,")"))
+```
+
+We found that about `r 128/(8988+128)`% people who did not subscribe but are predicted as subscribed. About `r 885/(885+296)`% people who subscribed but are predicted as not subscribed. We would like to try with a more rigorous threshold to reduce the true negative rates. After trying several thresholds, we found that with threshold = 0.1, the false positive rate is the lowest. However, it classifies too many people who did not subscribe into subscribed, which could result in too much effort in reaching out people who are supposed to subscribe. Therefore, we decide to use a threshold of 0.2, which makes balances the false positive rate the the true negative rate.
 
 ```{r}
 logit_pred = predict(logit_mod, test, type = "response")
 logit_pred = ifelse(logit_pred > 0.2, 1, 0)
 logit_pred_acc = mean(logit_pred == test$y)
+cat("Prediction Accuracy Rate: ",logit_pred_acc)
 ```
 
 ```{r}
 table(test$y, logit_pred > 0.2)
 ```
 
-The overall accuracy decreases to 0.8692823, since it classifies more people who did not subscribe into subscribe. However, the false positive rate actually declines, the goal to target potential customers are better achieved without contacting too many clients.
+```{r message=FALSE}
+logit_roc <- roc(test$y,logit_pred,direction="<")
+logit_auc <- auc(logit_roc)
+plot(logit_roc, main=paste("ROC Curve (AUC Score: ",logit_auc,")"))
+```
+
+The overall accuracy decreases to `r logit_pred_acc`, since it classifies more people who did not subscribe into subscribe. However, the false positive rate actually declines, the goal to target potential customers is better achieved without contacting too many clients.
 
 Even though the overall accuracy is pretty much high, we cannot simply say it is good since we are starting from a pretty good starting point. We are going to try more advanced models next.
+
 
 ## Naive Bayes 
 
 
-```{r message=FALSE}
+```{r message=FALSE, echo=FALSE}
 nb_control <- trainControl(
   method = "cv",
   number = 10,
@@ -546,19 +562,17 @@ nb_grid <- expand.grid(
 )
 nb_model <- train(
   x = train %>% select(-y),
-  y = train$y,
+  y = ifelse(train$y==0,'no','yes'),
   method = "nb",
   trControl = nb_control,
   tuneGrid = nb_grid,
-  verbose = FALSE,
   preProc = c("center","scale")
 )
 ```
 
-```{r message=FALSE}
-nb_pred = predict(nb_model, test)
+```{r message=FALSE, echo=FALSE}
+nb_pred = as.numeric(predict(nb_model, test))-1
 nb_pred_acc = sum(nb_pred == test$y) / length(test$y)
-cat("Prediction Accuracy Rate: ",nb_pred_acc)
 ```
 
 ```{r message=FALSE}
@@ -567,8 +581,11 @@ nb_auc <- auc(nb_roc)
 plot(nb_roc, main=paste("ROC Curve (AUC Score: ",nb_auc,")"))
 ```
 
+The accuracy rate is `r nb_pred_acc`, and the auc score is `r nb_auc`.  
 
 ## SVM
+
+It takes too long to train. 
 
 ```
 svm_linear_control <- trainControl(
@@ -634,93 +651,43 @@ rf_auc <- auc(rf_roc)
 plot(rf_roc, main=paste("ROC Curve (AUC Score: ",rf_auc,")"))
 ```
 
-## XGBoost 
 
-Before modeling, we handle the categorical and discrete variables first.  
-For variables `job`, `marital`, `education`, `month`, `day_of_week`, `poutcome`, `pdays`, `campaign` and `previous`, we use mean encoding which calculates the proportion of each category for true label (y==1) and assigns it as the corresponding value.   
-For `default`, `housing`, and `loan`, we use label encoding.  
-Last we use one hot encoding for `contact`.  
-The reason why we are using mean encoding for some categorical variables here is that mean encoding performs well on data which is high cardinality, which avoid too-high-dimensional problem in one hot encoding and inappropriate ranking information for nomial variables in label encoding. 
+## Gradient Boosting
 
-```{r eval=FALSE}
-# mean encoding 
-train_copy <- train[,]
-mean_encoding <- function(dataset, categorical_col, response) {
-  categorical_col <- enquo(categorical_col)
-  response <- enquo(response)
-  temp <- dataset %>% 
-    group_by(!!categorical_col,!!response) %>% 
-    summarise(n=n()) %>%
-    mutate(freq=n/sum(n)) %>%
-    filter(!!response=='yes') %>%
-    select(c(!!categorical_col,freq))
-  return(temp)
-}
+```{r}
+gb_control <- trainControl(
+   method = "cv",
+   number = 5
+)
 
-train_copy <- merge(train_copy,mean_encoding(train_copy,job,y),by='job') %>% select(-job) %>% mutate(job=freq) %>% select(-freq) 
-train_copy <- merge(train_copy,mean_encoding(train_copy,marital,y),by='marital') %>% select(-marital) %>% mutate(marital=freq) %>% select(-freq) 
-train_copy <- merge(train_copy,mean_encoding(train_copy,education,y),by='education') %>% select(-education) %>% mutate(education=freq) %>% select(-freq) 
-train_copy <- merge(train_copy,mean_encoding(train_copy,month,y),by='month') %>% select(-month) %>% mutate(month=freq) %>% select(-freq) 
-train_copy <- merge(train_copy,mean_encoding(train_copy,day_of_week,y),by='day_of_week') %>% select(-day_of_week) %>% mutate(day_of_week=freq) %>% select(-freq) 
-train_copy <- merge(train_copy,mean_encoding(train_copy,poutcome,y),by='poutcome') %>% select(-poutcome) %>% mutate(poutcome=freq) %>% select(-freq) 
-train_copy <- merge(train_copy,mean_encoding(train_copy,pdays,y),by='pdays') %>% select(-pdays) %>% mutate(pdays=freq) %>% select(-freq) 
-train_copy <- merge(train_copy,mean_encoding(train_copy,campaign,y),by='campaign') %>% select(-campaign) %>% mutate(campaign=freq) %>% select(-freq) 
-train_copy <- merge(train_copy,mean_encoding(train_copy,previous,y),by='previous') %>% select(-previous) %>% mutate(previous=freq) %>% select(-freq) 
-```
+gb_grid <-  expand.grid(interaction.depth = c(3, 5, 9), 
+                        n.trees = 500,
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
 
-```{r eval=FALSE}
-# label encoding 
-train_copy$default <- as.numeric(train_copy$default)-1
-train_copy$housing <- as.numeric(train_copy$housing)-1
-train_copy$loan <- as.numeric(train_copy$loan)-1
-```
-
-```{r eval=FALSE}
-# one hot encoding
-for (unique_value in unique(train_copy$contact)) {
-  train_copy[paste("contact", unique_value, sep = ".")] <- ifelse(train_copy$contact == unique_value, 1, 0)
-}
-train_copy <- train_copy %>% select(-contact)
-```
-
-```{r eval=FALSE}
-# test 
-test_copy <- test[,]
-
-test_copy <- merge(test_copy,mean_encoding(test_copy,job,y),by='job') %>% select(-job) %>% mutate(job=freq) %>% select(-freq) 
-test_copy <- merge(test_copy,mean_encoding(test_copy,marital,y),by='marital') %>% select(-marital) %>% mutate(marital=freq) %>% select(-freq) 
-test_copy <- merge(test_copy,mean_encoding(test_copy,education,y),by='education') %>% select(-education) %>% mutate(education=freq) %>% select(-freq) 
-test_copy <- merge(test_copy,mean_encoding(test_copy,month,y),by='month') %>% select(-month) %>% mutate(month=freq) %>% select(-freq) 
-test_copy <- merge(test_copy,mean_encoding(test_copy,day_of_week,y),by='day_of_week') %>% select(-day_of_week) %>% mutate(day_of_week=freq) %>% select(-freq) 
-test_copy <- merge(test_copy,mean_encoding(test_copy,poutcome,y),by='poutcome') %>% select(-poutcome) %>% mutate(poutcome=freq) %>% select(-freq) 
-test_copy <- merge(test_copy,mean_encoding(test_copy,pdays,y),by='pdays') %>% select(-pdays) %>% mutate(pdays=freq) %>% select(-freq) 
-test_copy <- merge(test_copy,mean_encoding(test_copy,campaign,y),by='campaign') %>% select(-campaign) %>% mutate(campaign=freq) %>% select(-freq) 
-test_copy <- merge(test_copy,mean_encoding(test_copy,previous,y),by='previous') %>% select(-previous) %>% mutate(previous=freq) %>% select(-freq) 
-
-test_copy$default <- as.numeric(test_copy$default)-1
-test_copy$housing <- as.numeric(test_copy$housing)-1
-test_copy$loan <- as.numeric(test_copy$loan)-1
-
-for (unique_value in unique(test_copy$contact)) {
-  test_copy[paste("contact", unique_value, sep = ".")] <- ifelse(test_copy$contact == unique_value, 1, 0)
-}
-test_copy <- test_copy %>% select(-contact)
-```
-
-```{r eval=FALSE}
-# save encoded dataset to avoid higher memory cost
-#write.csv(train_copy, "encoded_train.csv")
-#write.csv(test_copy, "encoded_test.csv")
+gb_model <- train(ifelse(y==0,'no','yes') ~ ., data = train, 
+                 method = "gbm", 
+                 trControl = gb_control, 
+                 verbose = FALSE, 
+                 tuneGrid = gb_grid)
 ```
 
 ```{r}
-# read saved files instead  
-train_copy <- read.csv("encoded_train.csv")
-test_copy <- read.csv("encoded_test.csv")
+gb_pred <- as.numeric(predict(gb_model, test))-1
+gb_pred_acc <- sum(gb_pred == test$y) / length(test$y)
+cat("Prediction Accuracy Rate: ",gb_pred_acc)
 ```
 
+```{r message=FALSE}
+gb_roc <- roc(test$y,gb_pred,direction="<")
+gb_auc <- auc(gb_roc)
+plot(gb_roc, main=paste("ROC Curve (AUC Score: ",gb_auc,")"))
+```
 
-Next, we are ready to build XGBoost model.  
+The accuracy rate is `r gb_pred_acc` and the auc score is `r gb_auc`. 
+
+## XGBoost 
+
 
 ```{r}
 xgb_control <- trainControl(
@@ -732,18 +699,18 @@ xgb_control <- trainControl(
 )
 
 xgb_grid <- expand.grid(
-  eta=c(0.01, 0.1, 1),
-  gamma=c(0.1, 1, 10),
-  max_depth=c(3,4,6,8),
-  colsample_bytree=c(0.5,0.7,0.9),
+  eta=0.1,
+  gamma=1,
+  max_depth=6,
+  colsample_bytree=0.9,
   nrounds=10,
-  min_child_weight=c(2,6,10),
-  subsample = c(0.7,0.9)
+  min_child_weight=10,
+  subsample = 0.9
   )
 
 xgb_model <- train(
-  y~.,
-  data = train_copy,
+  ifelse(y==0,'no','yes')~.,
+  data = train,
   method = "xgbTree",
   metric = "Accuracy",
   nthread = 2,
@@ -755,8 +722,8 @@ xgb_model$bestTune
 ```
 
 ```{r}
-xgb_pred <- predict(xgb_model, test_copy)
-xgb_pred_acc <- sum(xgb_pred == test_copy$y) / length(test_copy$y)
+xgb_pred <- as.numeric(predict(xgb_model, test))-1
+xgb_pred_acc <- sum(xgb_pred == test$y) / length(test$y)
 cat("Prediction Accuracy Rate: ",xgb_pred_acc)
 ```
 
@@ -765,11 +732,12 @@ varImp(xgb_model,scale = FALSE)
 ```
 
 ```{r message=FALSE}
-xgb_roc <- roc(as.integer(test_copy$y),as.integer(xgb_pred),direction="<")
+xgb_roc <- roc(test$y,xgb_pred,direction="<")
 xgb_auc <- auc(xgb_roc)
 plot(xgb_roc, main=paste("ROC Curve (AUC Score: ",xgb_auc,")"))
 ```
 
+The accuracy rate is `r xgb_pred_acc` and the auc score is `r xgb_auc`. 
 
 ## CatBoost  
 
@@ -777,8 +745,9 @@ We notice that there are many categorical variables, and also some discrete vari
 
 ```{r}
 # extract features and labels for modeling
-features <- data %>% select(-c(y))
-labels <- data$y
+features <- train %>% select(-y)
+labels <- as.factor(train$y)
+levels(labels) <- c('no','yes')
 ```
 
 ```{r message=FALSE}
@@ -812,7 +781,8 @@ cat_model$bestTune
 ```
 
 ```{r}
-cat_pred <- predict(cat_model, test)
+cat_pred <- as.factor(predict(cat_model, test))
+levels(cat_pred) <- c(0,1)
 cat_pred_acc <- sum(cat_pred == test$y) / length(test$y)
 cat("Prediction Accuracy Rate: ",cat_pred_acc)
 ```
@@ -823,11 +793,12 @@ varImp(cat_model,scale = FALSE)
 
 ```{r, message=FALSE}
 #table(test$y, cat_pred)
-cat_roc <- roc(as.integer(test$y),as.integer(cat_pred),direction="<")
+cat_roc <- roc(as.numeric(test$y),as.numeric(cat_pred),direction="<")
 cat_auc <- auc(cat_roc)
 plot(cat_roc, main=paste("ROC Curve (AUC Score: ",cat_auc,")"))
 ```
 
 The prediction accuracy rate on our test dataset is **`r cat_pred_acc`**, and the AUC score is `r cat_auc`. Our best parameters selected from the grid search is also shown above. From our best model, `nr.employed` is the most important variable. 
 
-# Results
+# Results  
+
