@@ -1,53 +1,54 @@
-shinyServer(
-  function(input, output, session) {
+library(shiny)
+library(shinydashboard)
+library(mice)
 
-    # get the training dataset
-    myTrain <- reactive({
-      data = read.csv("cleaned_data_additional_full.csv")[,-1]
-      data[data == "unknown"] = NA
-      levels(data$y) = c(0, 1)
-      # select desired variables
-      data = data %>%
-        select(-c(emp.var.rate, euribor3m, duration))
-      # get train data
-      set.seed(2383)
-      size = floor(0.75 * nrow(data))
-      train_index <- sample(seq_len(nrow(data)), size = size)
-      train = data[train_index,]
-    })
-    
-    # train the model
-    myMod <- reactive({
-      logit_mod <- glm(y ~ ., data = myTrain(), family = binomial)
-      return(logit_mod)
-    })
-    
-    # Make the selected variables a new dataframe
-    selectData <- reactive({
-      data <- data.frame(input$age, input$job, input$marital, input$edu, input$default, 
-                         input$housing, input$loan, input$contact, input$month, 
-                         input$day_of_week, input$campaign, input$pdays, input$previous, 
-                         input$poutcome, input$cons.price.idx, input$cons.conf.idx, 
-                         input$nr.employed
-                         )
-      colnames(data) <- c(colnames(myTrain()[-18]))
-      return(data)
-    })
-    
-    prediction <- reactive({
-      logit_pred = predict(myMod(), selectData(), type = "response")
-      logit_pred = ifelse(logit_pred > 0.2, 1, 0)
-      return(logit_pred)
-    })
-    
-    output$text.output <- renderText({
-      if (prediction() == 1){
-        "Based on the information of the client, we expect he/she will subscribe to a term deposit"
-      }
-      else{
-        "Based on the information of the client, we expect he/she will subscribe to a term deposit."
-      }
-    })
+load("LogisticRegression.rda")
 
-  }
-)
+server <- function(input, output) {
+  
+  data = reactive({
+    # read the data from input
+    data = read.csv(input$test_data$datapath, header = TRUE, sep = ';')
+    
+    data[data == "unknown"] = NA
+    
+    # impute missing values
+    withProgress(message = 'Imputing missing values...',{
+      data = mice(data, maxit = 1, method = 'pmm', seed = 6)
+      data = complete(data)
+    })
+    
+    return(data)
+  })
+  
+  results <- reactive({
+    # null check
+    if(is.null(input$test_data)){
+      return(NULL)
+    }
+    # make predictions
+    withProgress(message = 'Making predictions...',{
+    prediction <- logit_mod %>% predict(data() , type = "response")
+    prediction = ifelse(prediction > 0.2, "yes", "no")
+    })
+    
+    # append predictions
+    pred_df <- cbind(data(), prediction)
+    pred_df
+  })
+  
+  
+  output$res <- reactive({
+    results()
+  })
+  
+  # download predictions
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste("predictions", ".csv", sep = "")
+    },
+    content = function(file) {
+      write.csv(results(), file, row.names = FALSE)
+    })
+  
+}

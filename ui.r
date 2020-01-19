@@ -1,51 +1,40 @@
-shinyUI(
-  pageWithSidebar(
-    headerPanel('Will the client subscribe to a term deposit?'),
-    sidebarPanel(
-      numericInput('age', 'Age', 0,
-                   min = 0, max = 120),
-      selectInput('job', 'Job', c('admin.','blue-collar',
-                                  'entrepreneur','housemaid',
-                                  'management','retired',
-                                  'self-employed','services',
-                                  'student','technician',
-                                  'unemployed')),
-      selectInput('marital', 'Marital Status', c('divorced','married','single')),
-      selectInput('edu', 'Education', c('basic.4y','basic.6y',
-                                        'basic.9y','high.school',
-                                        'illiterate','professional.course',
-                                        'university.degree')),
-      radioButtons('default', 'Has credit in default?', c('yes', 'no')),
-      radioButtons('housing', 'Has housing loan?', c('yes', 'no')),
-      radioButtons('loan', 'Has personal loan?', c('yes', 'no')),
-      radioButtons('contact', 'Contact communication type?', c('cellular', 'telephone')),
-      selectInput('month', 'Last contact month of year', c('mar','apr',
-                                                           'may','jun',
-                                                           'jul','aug',
-                                                           'sep','oct',
-                                                           'nov', 'dec')),
-      selectInput('day_of_week', 'Last contact day of week', c('mon','tue',
-                                                               'wed','thu',
-                                                               'fri')),
+library(shinydashboard)
+library(shinythemes)
+
+ui <- dashboardPage(
+  dashboardHeader(title = "Subscription Prediction"),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem(tags$em("Upload Test Data"), icon=icon("upload"),tabName = "upload"),
+      menuItem(tags$em("Download Predictions"), icon=icon("download"),tabName = "download")
+    )
+  ),
+  dashboardBody(
+    tabItems(
+      # upload
+      tabItem(tabName = 'upload',
+              tags$h1("Welcome to the Subscription Prediction Shiny App!"),
+              tags$h4("This app is desigend to give you predictions on whether the client
+                      will subscribe to a term deposit or not. By simply uploading a csv file
+                      containing the variables needed, you can get the prediction results and 
+                      download it for your futher use."),
+              column(width = 4,
+                     fileInput('test_data', h3('Upload test data in csv format ',
+                                           style="color:blue;font-size:130%"),
+                               multiple = FALSE,accept=c('.csv'))),
+              # uiOutput("input_data"),
+              tableOutput("res")
+              
+      ),
       
-      
-      numericInput('campaign', 'Number of contacts performed during the campaign for this client',
-                   0, min = 0, max = 200),
-      numericInput('pdays', 'Number of days that passed by after the client 
-                   was last contacted from a previous campaign',
-                   0, min = 0, max = 999),
-      numericInput('previous', 'Number of contacts performed before this campaign for this client',
-                   0, min = 0, max = 200),
-      radioButtons('poutcome', 'Outcome of the previous marketing campaign', c('failure','nonexistent','success')),
-      numericInput('cons.price.idx', 'Consumer price index - monthly indicator',
-                   0, min = 0, max = 100),
-      numericInput('cons.conf.idx', 'Consumer confidence index - monthly indicator',
-                   0, min = -100, max = 0),
-      numericInput('nr.employed', 'Number of Employees - quarterly indicator',
-                   0, min = 0, max = 1000000)
-    ),
-    mainPanel(
-      textOutput('text.output')
+      # download
+      tabItem(tabName = 'download',
+              tags$h4("Click the 'Download Predictions' button to download the predictions in csv format."),
+              column(width = 4,
+                     downloadButton("downloadData", 
+                                    em('Download Predictions',
+                                       style="color:blue;font-size:130%")))
+             )
     )
   )
 )
