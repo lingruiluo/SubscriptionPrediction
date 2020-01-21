@@ -1,6 +1,7 @@
 library(shiny)
 library(shinydashboard)
 library(mice)
+library(dplyr)
 
 load("LogisticRegression.rda")
 
