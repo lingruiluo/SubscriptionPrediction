@@ -1,25 +1,54 @@
-shinyServer(
-  function(input, output, session) {
+library(shiny)
+library(shinydashboard)
+library(mice)
+
+load("LogisticRegression.rda")
+
+server <- function(input, output) {
+  
+  data = reactive({
+    # read the data from input
+    data = read.csv(input$test_data$datapath, header = TRUE, sep = ';')
     
-    # Combine the selected variables into a new data frame
-    selectedData <- reactive({
-      iris[, c(input$xcol, input$ycol)]
+    data[data == "unknown"] = NA
+    
+    # impute missing values
+    withProgress(message = 'Imputing missing values...',{
+      data = mice(data, maxit = 1, method = 'pmm', seed = 6)
+      data = complete(data)
     })
     
-    clusters <- reactive({
-      kmeans(selectedData(), input$clusters)
+    return(data)
+  })
+  
+  results <- reactive({
+    # null check
+    if(is.null(input$test_data)){
+      return(NULL)
+    }
+    # make predictions
+    withProgress(message = 'Making predictions...',{
+    prediction <- logit_mod %>% predict(data() , type = "response")
+    prediction = ifelse(prediction > 0.2, "yes", "no")
     })
     
-    output$plot1 <- renderPlot({
-      palette(c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3",
-                "#FF7F00", "#FFFF33", "#A65628", "#F781BF", "#999999"))
-      
-      par(mar = c(5.1, 4.1, 0, 1))
-      plot(selectedData(),
-           col = clusters()$cluster,
-           pch = 20, cex = 3)
-      points(clusters()$centers, pch = 4, cex = 4, lwd = 4)
+    # append predictions
+    pred_df <- cbind(data(), prediction)
+    pred_df
+  })
+  
+  
+  output$res <- reactive({
+    results()
+  })
+  
+  # download predictions
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste("predictions", ".csv", sep = "")
+    },
+    content = function(file) {
+      write.csv(results(), file, row.names = FALSE)
     })
-    
-  }
-)
+  
+}

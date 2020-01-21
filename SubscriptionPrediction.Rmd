@@ -483,7 +483,9 @@ test_X = test %>% select(-y)
 ```
 
 
-## Logistic
+## Logistic Regression
+
+We first fit a logistic regression model since the response variable is binary.
 
 ```{r}
 train_logit <- train[,]
@@ -493,7 +495,7 @@ levels(test_logit$y) <- c(0,1)
 ```
 
 ```{r, cache = TRUE}
-logit_mod <- glm(y ~ ., data = train_logit, family = binomial)
+logit_mod <- glm(y ~ ., data = train, family = binomial)
 ```
 
 Since there are much less observations who subscribed to a term deposit, we define a threshold that if the predicted value is greater than 0.5, we treat it as subscribed.
@@ -614,8 +616,9 @@ svm_linear_model$bestTune
 ## Random Forest
 
 ```{r, cache = TRUE}
-rf_grid = expand.grid(mtry = 1 : 6)
+rf_grid = expand.grid(mtry = 1 : 8)
 
+## out of bag
 oob = trainControl(method = "oob")
 rf_oob_tune = train(
   y ~ .,
@@ -639,7 +642,7 @@ rf_oob_pred_acc = sum(rf_oob_pred == test$y) / length(test$y)
 cat("Prediction Accuracy Rate: ",rf_oob_pred_acc)
 ```
 
-The best tune uses `mtry` = 3. By checking the variable importance, we can see that `nr.employed`, `cons.conf.idx`, and `cons.price.idx` are the most important variables for predicting whether a client subscribes to a term deposit or not. The prediction accuracy is **`r rf_oob_pred_acc`** on the test data.  
+The best tune uses `mtry` = 8. By checking the variable importance, we can see that `duration`, `euribor3m`, and `age` are the most important variables for predicting whether a client subscribes to a term deposit or not. The prediction accuracy is **`r rf_oob_pred_acc`** on the test data.  
 
 ```{r message=FALSE}
 rf_roc <- roc(as.integer(test$y),as.integer(rf_oob_pred),direction="<")
@@ -647,6 +650,7 @@ rf_auc <- auc(rf_roc)
 plot(rf_roc, main=paste("ROC Curve (AUC Score: ",rf_auc,")"))
 ```
 
+From the AUC-ROC curve, the random forest model is good but is not as good as logistic regression.
 
 ## Gradient Boosting
 
