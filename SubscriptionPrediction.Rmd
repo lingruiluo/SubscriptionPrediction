@@ -79,8 +79,8 @@ There are a few missing values associated with `job`, `marital`, `education`, `h
 We use the `mice` package to impute the missing values.
 
 ```{r, eval = FALSE, echo=TRUE}
-imputed_data = mice(data, maxit = 1, method = 'pmm', seed = 6)
-data = complete(imputed_data)
+#imputed_data = mice(data, maxit = 1, method = 'pmm', seed = 6)
+#data = complete(imputed_data)
 
 # save the data
 #write.csv(data, "cleaned_data_additional_full.csv")
@@ -471,7 +471,7 @@ library(naivebayes)
 ```
 
 
-```{r eval=FALSE}
+```{r}
 # train-test split
 set.seed(2383)
 size = floor(0.75 * nrow(data))
